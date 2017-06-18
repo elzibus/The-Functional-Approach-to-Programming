@@ -66,10 +66,102 @@ let add_num = function
 
 type angle = Angle of float ;;
 
-(* ! no "==" in Ocaml *)
+(* ! no "==" in Ocaml for type abbreviations *)
   
 type intpair = int * int ;;
   
 type intpair = Intpair of int * int ;;
 
+(* 2.2.4 Recursive Types *)
+
+type inttree = Leaf of int
+	     | Node of inttree * inttree ;;
   
+Node(Leaf 3, Node (Leaf 4, Leaf 5)) ;;
+
+let rec total = function
+    Leaf n -> n
+  | Node (t1, t2) -> total t1 + total t2 ;;
+
+Node(Leaf 3, Node(Leaf 4, Leaf 5)) ;;
+
+type exp = Constant of int
+	 | Variable of string
+	 | Addition of exp * exp
+	 | Multiplication of exp * exp ;;
+  
+
+let rec eval env expression =
+  match expression with
+    Constant n -> n
+  | Variable x -> env x
+  | Addition (e1, e2) -> eval env e1 + eval env e2
+  | Multiplication (e1, e2) -> (eval env e1) * (eval env e2) ;;
+  
+let rec deriv var expression =
+  match expression with
+    Constant n -> Constant 0
+  | Variable x -> if x=var then Constant 1 else Constant 0
+  | Addition (e1, e2) -> Addition( deriv var e1, deriv var e2)
+  | Multiplication (e1, e2) -> Addition( Multiplication (e1, deriv var e2),
+					 Multiplication (deriv var e1, e2)) ;;
+
+(* some example calls *)
+  
+deriv "x" (Constant 5) ;;
+deriv "x" (Addition(Variable "x", Variable "y")) ;;
+deriv "x" (Addition(Constant 5, Multiplication( Variable "x", Variable "x"))) ;;
+  
+(* 2.2.5 Polymorphic Types *)
+
+type 'a tree = Leaf of 'a
+	     | Node of 'a tree * 'a tree ;;
+  
+Node(Leaf 3, Node(Leaf 4, Leaf 5)) ;;
+  
+type ('a, 'b) dict_entry = {content: 'a; key: 'b} ;;
+  
+{content= 1; key= "my key"} ;;
+    
+type ('a, 'b) dictionary = ('a, 'b) dict_entry list ;;
+  
+(* 2.2.6 Lists *)
+
+type 'a list = Nil | Cons of 'a * 'a list ;;
+  
+Cons (2, Cons (3, Nil)) ;;
+
+3 :: [] ;;
+
+[3] ;;
+
+[[1;2];[3;4]] ;;
+  
+[1; 1+1] @ [2+1;2+2] ;;
+
+(* 2.2.7 Recursive Definitions of Values *)
+
+let rec x = "one" :: y and y = "two" :: x;;
+
+(* take n elements from a list *)  
+let take n l =
+  let rec take_helper n l =
+    if n = 0 then []
+    else (List.hd l):: take_helper (n-1)
+				  (List.tl l)
+  in
+  take_helper n l;;
+
+take 5 x ;;
+
+take 10 y ;;
+
+let rec t = Node(Leaf "one", Node ( Leaf "two", t)) ;;
+  
+(* 2.2.8 Abstract Types *)
+
+(* module code not typed here.. *)
+
+(* 2.2.9 Concreate Syntax of Data Structures *)
+
+ 

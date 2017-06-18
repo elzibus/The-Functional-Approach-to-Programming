@@ -9,6 +9,8 @@
 (* more in https://github.com/ocsigen/js_of_ocaml/blob/master/examples/hyperbolic/hypertree.ml *)
 (* examples from here: http://www.mesacc.edu/~scotz47781/mat120/notes/ *)
 
+type complex = { re_part: float; im_part: float } ;;
+
 let cx_conjugate {re_part=re; im_part=im} = {re_part=re; im_part=(-1.*.im)} ;;
   
 cx_conjugate {re_part=1.; im_part=2.} ;;
@@ -42,4 +44,3 @@ cx_div {re_part=3. ; im_part= 2.}
     
 let cx_norm c = sqrt( cx_sq_norm c );;
 
-  
