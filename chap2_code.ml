@@ -89,7 +89,6 @@ type exp = Constant of int
 	 | Variable of string
 	 | Addition of exp * exp
 	 | Multiplication of exp * exp ;;
-  
 
 let rec eval env expression =
   match expression with
@@ -164,4 +163,94 @@ let rec t = Node(Leaf "one", Node ( Leaf "two", t)) ;;
 
 (* 2.2.9 Concreate Syntax of Data Structures *)
 
- 
+(* inttree_of_string is not given in the book so here is a version *)
+  
+#load "str.cma" ;;
+    
+(* we keep the string value and an index inside the string *)  
+type stringp = { str: string ; ptr: int  } ;;
+  
+let rec skip_spaces strp =
+  if strp.ptr > (String.length strp.str) -1 then strp
+  else if strp.str.[strp.ptr] = ' ' || strp.str.[strp.ptr] = '\t' then skip_spaces {str = strp.str; ptr = strp.ptr + 1}
+  else strp ;;
+  
+let peek_char strp =
+  if strp.ptr > (String.length strp.str) -1 then failwith "peek_char is looking after the end of the string"
+  else strp.str.[strp.ptr] ;;
+  
+let next_char strp = {str= strp.str; ptr=strp.ptr+1} ;;
+  
+let is_digit_char c = c >= '0' && c <= '9' ;;
+  
+let read_int strp =
+  let rec read_int_helper strp res =
+    if strp.ptr > (String.length strp.str) - 1 then (strp, Leaf (int_of_string res))
+    else let c = peek_char strp in
+	 if is_digit_char c then read_int_helper {str=strp.str; ptr=strp.ptr+1} (res ^ (String.make 1 c))
+	 else  (strp, Leaf (int_of_string res))
+  in
+  read_int_helper strp "" ;;
+
+let inttree_of_string str =   
+  let rec ios_helper strp =
+    let strp1 = skip_spaces strp in
+    if peek_char strp1 = '(' then ( let strp2 = next_char strp1 in
+				    let (strp3, t1) = ios_helper strp2 in
+				    if peek_char strp3 = ',' then ( let strp4 = next_char strp3 in
+								    let(strp5, t2) = ios_helper strp4 in
+								    if peek_char strp5 = ')' then (next_char strp5, Node( t1, t2))
+								    else failwith "Wrong syntax" )
+				    else failwith "Wrong syntax" )
+    else if is_digit_char (peek_char strp1) then read_int strp1
+    else failwith "Wrong syntax" in
+  snd (ios_helper {str=str;ptr=0}) ;;
+  
+inttree_of_string "2" ;;
+
+inttree_of_string "(1,(2,3))" ;;
+
+inttree_of_string "(1,(2,(3,(4,(5,(6,(7,8)))))))" ;;
+
+let rec string_of_inttree t =
+  match t with
+    Leaf i -> string_of_int i
+  | Node ( l1, l2 ) -> "(" ^ string_of_inttree l1 ^ "," ^ string_of_inttree l2 ^ ")" ;;
+
+string_of_inttree (inttree_of_string "2") ;;
+
+string_of_inttree (inttree_of_string "(1,(2,3))");;
+
+string_of_inttree (inttree_of_string "(1,(2,(3,(4,(5,(6,(7,8)))))))");;
+
+(* TODO: exp_of_string *)
+
+let is_var_char c = not ( c = ',' || c = '(' || c = ')') ;;
+
+let read_var conv strp =
+  let rec rv_helper strp res =
+    if strp.ptr > (String.length strp.str) - 1 then (strp, Leaf (conv res))
+    else let c = peek_char strp in
+	 if is_var_char c then rv_helper {str=strp.str; ptr=strp.ptr+1} (res ^ (String.make 1 c))
+	 else  (strp, Leaf (conv res))
+  in
+  rv_helper strp "" ;;
+  
+let tree_of_string conv str =
+  let rec tos_helper strp =
+    let strp1 = skip_spaces strp in
+    if peek_char strp1 = '(' then ( let strp2 = next_char strp1 in
+				    let (strp3, t1) = tos_helper strp2 in
+				    if peek_char strp3 = ',' then ( let strp4 = next_char strp3 in
+								    let(strp5, t2) = tos_helper strp4 in
+								    if peek_char strp5 = ')' then (next_char strp5, Node( t1, t2))
+								    else failwith "Wrong syntax" )
+				    else failwith "Wrong syntax" )
+    else if is_var_char (peek_char strp1) then read_var conv strp1
+    else failwith "Wrong syntax" in
+  snd (tos_helper {str=str;ptr=0}) ;;
+
+tree_of_string int_of_string "(2,(3,4))" ;;
+
+tree_of_string (fun x-> x) "(2,(3,4))" ;;
+
