@@ -254,3 +254,136 @@ tree_of_string int_of_string "(2,(3,4))" ;;
 
 tree_of_string (fun x-> x) "(2,(3,4))" ;;
 
+(* 2.3 Lists *)
+
+let rec length = function
+    [] -> 0
+  | (a::l) -> 1 + length l ;;
+  
+length [1;2;3] ;;
+
+let rec append l1 l2 =
+  match l1 with
+    [] -> l2
+  | (a::l) -> a::append l l2 ;;
+  
+append [1;2;3] [4;5;6] ;;
+
+let rec rev = function
+    [] -> []
+  | (a::l) -> append (rev l) [a] ;;
+  
+rev ["d";"c";"b";"a"] ;;
+  
+let rec sigma = function
+    [] -> 0
+  | (a::l) -> a + sigma l ;;
+  
+sigma [1;2;3] ;;
+  
+let rec pi = function
+    [] -> 1
+  | (a::l) -> a * pi l ;;
+  
+pi [1;2;3;4;5] ;;
+  
+let rec map f l =
+  match l with
+    [] -> []
+  | (a::l) -> (f a)::(map f l) ;;
+  
+map (fun x -> 1 + x) [1;2;3] ;;
+
+let rec flat = function
+    [] -> []
+  | (l::ll) -> append l (flat ll) ;;
+  
+flat [ [1;2]; [3;4;5] ] ;;
+
+(* 2.3.1 General Functionals for Lists *)
+
+let rec list_hom e f l =
+  match l with
+    [] -> e
+  | (a::l) -> f a (list_hom e f l) ;;
+  
+let length = list_hom 0 (fun _ y -> 1 + y) ;;
+
+length [1;2;3;4] ;;
+
+let append l1 l2 = list_hom l2 (fun x l -> x::l) l1 ;;
+
+append [1;2;3] [4;5;6;7;8] ;;
+
+let rev = list_hom [] (fun e l -> append l [e]) ;;  
+
+rev [1;2;3;4;5;6] ;;
+  
+let sigma = list_hom 0 ( + ) ;;
+
+sigma [1;2;3] ;;
+
+let pi = list_hom 0 ( * ) ;;
+
+pi [1;2;3] ;;
+
+let map f = list_hom [] (fun e l -> f(e) :: l ) ;;
+  
+map (fun x -> x+2) [1;2;3] ;;
+
+let flat = list_hom [] append ;;
+  
+flat [["a";"B"];["c";"d"]];;
+
+let rec list_it f l e =
+  match l with
+    [] -> e
+  | (a::l) -> f a (list_it f l e) ;;
+  
+let rec it_list f e l =
+  match l with
+    [] -> e
+  | (a::l) -> it_list f (f e a) l ;;
+
+(* 2.3.2 Partitioning and Sorting *)
+
+let partition test l =
+  let switch elem (l1, l2) =
+    if test elem then (l1, elem::l2) else (elem::l1, l2)
+  in list_it switch l ([],[]) ;;
+
+partition ( fun x -> x > 2 ) [1;2;3;4] ;;  
+
+let filter test l = snd ( partition test l ) ;;  
+
+filter ( fun x -> x > 2 ) [1;2;3;4] ;;  
+
+filter ( fun x -> (x mod 2  ) = 0) [2;3;5;8;9;12;15] ;;
+  
+let rec quicksort order l =
+  match l with
+    [] -> []
+  | a::l -> let (l1,l2) = partition (order a) l in
+	    (quicksort order l1) @ (a::(quicksort order l2)) ;;
+  
+quicksort (fun x y -> x < y) [1;3;2;1;4;3;2;3;4] ;;
+
+quicksort ( < ) [6;3;9;1;2;7] ;;
+
+quicksort ( > ) [6;3;9;1;2;7] ;;
+  
+quicksort ( < ) [0.25;0.125;0.1095;0.3] ;;
+  
+let rec insert order elem list =
+  match list with
+    [] -> [elem]
+  | (a::l) -> if order elem a then elem::a::l
+	      else a:: insert order elem l ;;
+
+(* ! next function is fixed in the book errata *)
+  
+let sort order xs = list_it (insert order) xs [] ;;  
+
+sort ( < ) [3;2;4;5;2;3;1;3] ;;  
+
+  
