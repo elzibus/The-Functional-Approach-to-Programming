@@ -62,7 +62,7 @@ maxi ( > ) ['a';'m';'O'] ;;
 (* exercise 2.4 *)
 (* returns the pair (min,max) *)
 
-(* wasted I don't know how long here because I had a syntax error due to a missing double semi-colon above.... *)  
+(* wasted I don't know how long here because I had a syntax error due to a missing double semi-colon in the last expression above.... *)  
   
 let minmax gt l = it_list (fun (a,b) c -> let p1 = if (gt a c) then c else a in
 					  let p2 = if (gt c b) then c else b in
@@ -72,4 +72,37 @@ let minmax gt l = it_list (fun (a,b) c -> let p1 = if (gt a c) then c else a in
 
 minmax ( > ) [1;2;3;2;1;3;2;4;6;78] ;;
 
+(* exercise 2.5 *)  
+
+let rec list_it f l e =
+  match l with
+    [] -> e
+  | (a::l) -> f a (list_it f l e) ;;
+
+let partition test l =
+  let switch elem (l1, l2) =
+    if test elem then (l1, elem::l2) else (elem::l1, l2)
+  in list_it switch l ([],[]) ;;
+
+let rec quicksort order l =
+  match l with
+    [] -> []
+  | a::l -> let (l1,l2) = partition (order a) l in
+	    (quicksort order l1) @ (a::(quicksort order l2)) ;;
   
+let pair1sort = quicksort ( fun (x,_) (y,_) -> x < y) ;;
+
+pair1sort [(5,6);(1,2);(1,3);(2,4)] ;;
+
+pair1sort [(1,2);(1,3);(1,1);(10,10);(2,4)] ;;
+
+(* exercise 2.6 *)  
+  
+let lexisort cmp1 cmp2 =
+  quicksort (fun (x1,y1) (x2,y2) -> (cmp1 x1 x2) || ( x1 = x2 && (cmp2 y1 y2))) ;;
+
+lexisort ( < ) ( < ) [(1,2);(1,3);(1,1);(10,10);(2,4)] ;;
+  
+lexisort ( < ) ( < ) [(1,'2');(1,'3');(1,'1');(10,'a');(0,'0');(2,'4')] ;;
+
+lexisort ( < ) ( > ) [(1,'2');(1,'3');(1,'1');(10,'a');(0,'0');(2,'4')] ;;
