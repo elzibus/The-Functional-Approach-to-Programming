@@ -386,4 +386,133 @@ let sort order xs = list_it (insert order) xs [] ;;
 
 sort ( < ) [3;2;4;5;2;3;1;3] ;;  
 
+(* Representing Sets by Lists *)
+
+let rec member equiv e list =
+  match list with
+    [] -> false
+  |(a::l) -> (equiv a e) || member equiv e l ;;
+
+member ( = ) 1 [1;2;3] ;;
+
+member ( = ) 10 [1;2;3] ;;
+
+member ( = ) 1 [1;2;3;1] ;;
+
+let rec rem_from_list equiv e list =
+  match list with
+    [] -> []
+  | (a::l) -> if (equiv a e) then rem_from_list equiv e l
+	      else a::rem_from_list equiv e l ;;
+  
+(* version from the book *)
+
+
+let rec rem_from_list equiv e list =
+  match list with
+    [] -> []
+  | (a::l) -> let l' = rem_from_list equiv e l in
+	      if (equiv a e) then l'
+	      else a::l' ;;
+  
+let rec make_set equiv list =
+  match list with
+    [] -> []
+  | (a::l) -> a::make_set equiv (rem_from_list equiv a l) ;;
+  
+make_set ( = ) [1;2;1;2;3;2;1;3;4;2;5;6] ;;
+
+let rec rem_from_set equiv e list =
+  match list with
+    [] -> []
+  | (a::l) -> if (equiv a e) then l
+	      else a::rem_from_set equiv e l ;;
+
+let add_to_set equiv e l =
+  if member equiv e l then l else e::l ;;
+
+let rec union equiv (l1,l2) =
+  list_it (add_to_set equiv) l1 l2 ;;
+
+union ( = ) ([1;2;3], [1;2;3;4;5]) ;;
+
+let inter equiv (l1, l2) =
+  filter (fun x -> member equiv x l2) l1 ;;
+
+inter ( = ) ([1;2;3], [1;3;4;5]) ;;
+
+let rec member (order, equiv) e list =
+  match list with
+    [] -> false
+  | (a::l) -> if order(a,e) then member (order, equiv) e l
+	      else equiv(a,e) ;;
+
+(* parens around each function in the pair must be used in the expressions below *)
+  
+member ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 1 [1;2;3] ;;
+
+member ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 100 [1;2;3] ;;
+
+let rec add_to_set (order,equiv) elem list =
+  match list with
+    [] -> [elem]
+  | (a::l) -> if order(elem,a) then elem::a::l
+	      else if equiv(elem,a) then a::l
+	      else a::add_to_set (order, equiv) elem l ;;
+		  
+add_to_set ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'f' ['a';'g';'z'] ;;
+
+add_to_set ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'g' ['a';'g';'z'] ;;
+
+let rec inter (order, equiv) = function
+    ([],_) -> []
+  | (_,[]) -> []
+  | ((a1::l1 as ll1), (a2::l2 as ll2)) ->
+     if equiv(a1,a2) then a1::inter (order, equiv) (l1, l2)
+     else if order(a1,a2) then inter (order, equiv) (l1, ll2)
+     else inter (order, equiv) (ll1, l2) ;;
+
+inter ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g'], ['a';'g';'z']) ;;
+  
+inter ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g';'h'], ['g';'h']) ;;
+
+let rec union (order, equiv) = function
+    ([], l2) -> l2
+  | (l1, []) -> l1
+  | ((a1::l1 as ll1), (a2::l2 as ll2)) ->
+     if equiv(a1,a2) then a1::union (order, equiv) (l1, l2)
+     else if order(a1,a2) then a1::union (order, equiv) (l1, ll2)
+     else a2::union (order,equiv) (ll1, l2) ;;
+				 
+union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g'], ['a';'g';'z']) ;;
+  
+union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g';'h'], ['g';'h']) ;;
+
+union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) ([1;2;3;4;5],[3;4;5;6]) ;;
+  
+(* 2.3.4 Searching in a List *)
+
+type 'a option = None
+	       | Some of 'a ;;  
+  
+let rec find prop list =
+  match list with
+    [] -> None
+  | (a::l) -> if prop a then Some a else find prop l ;;
+
+find ( fun x -> x = 1 ) [2;3;1] ;;
+
+find ( fun x -> x = 100 ) [2;3;1] ;;
+
+find (fun x -> (x mod 2 ) = 0 ) [3;1;7;8;13;4] ;;  
+
+find (fun x -> (x mod 2 ) = 0 ) [3;1;7;13] ;;  
+
+let associate v l =
+  match find (fun (x,y) -> x = v) l with
+    None -> None
+  | Some (x,y) -> Some y ;;
+
+associate 3 [(1,2);(3,4);(5,6)] ;;  
+
   
