@@ -323,9 +323,10 @@ let sigma = list_hom 0 ( + ) ;;
 
 sigma [1;2;3] ;;
 
-let pi = list_hom 0 ( * ) ;;
+(* thanks for the fix github.com/fourchaux ! *)
+let pi = list_hom 1 ( * ) ;;
 
-pi [1;2;3] ;;
+pi [1;2;3;4;5] ;;
 
 let map f = list_hom [] (fun e l -> f(e) :: l ) ;;
   
