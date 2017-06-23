@@ -1,4 +1,6 @@
 
+#mod_use "ch1.ml" ;;
+
 (* exercise 1.1 *)
 
 let has_solutions a b c = b *. b -. 4. *. a *. c >= 0. ;;

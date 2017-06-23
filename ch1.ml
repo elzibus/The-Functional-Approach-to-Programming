@@ -55,7 +55,9 @@ x ;;
   
 1.0 ;;
 
-sqrt (2) ;;  (* expected error *)
+(* this generates and error because sqrt expects a float:
+ *        sqrt (2) ;;
+ *)
 
 sqrt (2.) ;;
 
