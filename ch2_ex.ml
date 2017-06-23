@@ -230,6 +230,52 @@ let t1 = inttree_of_string "(1,(2,(3,(4,(4,(3,(2,1)))))))" in
   
 (* exercise 2.10 *)
 
+type direction = L | R ;;
+
+let subtree_from_ldir ldir t =
+  let rec sfl_helper ldir t step1 =
+    match (ldir,t) with
+      ([],t) -> Some t
+     |([L], Leaf l) -> if not step1 then Some (Leaf l) else None
+     |([R], Leaf l) -> if not step1 then Some (Leaf l) else None
+     |([L], Node(n1,_)) -> Some n1
+     |([R], Node(_,n2)) -> Some n2
+     |(L::rd, Node(n1,n2)) -> sfl_helper rd n1 false
+     |(R::rd, Node(n1,n2)) -> sfl_helper rd n2 false
+  in
+  sfl_helper ldir t true ;;
+    
+subtree_from_ldir [R;L] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
+
+subtree_from_ldir [R;R] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
+
+subtree_from_ldir [R;R;R] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
+
+subtree_from_ldir [R] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
+  
+subtree_from_ldir [] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
+
+(* My understanding from the u=u1u2 rule in the exercise is that
+ * the following call needs to return false. By this I mean u1 cannot be empty:
+ * at least one step needs to be taken in the tree.
+ * step1 is a bool that encodes this information in the function definition.
+ *)
+  
+subtree_from_ldir [R] (Leaf 5) ;;
+
+subtree_from_ldir [L] (Leaf 5) ;;
+
+subtree_from_ldir [] (Leaf 5) ;;
+
+subtree_from_ldir [R;R]
+		  (Node(Leaf 1,Node(Leaf 2, Leaf 3))) ;;
+
+subtree_from_ldir [R;R;R;R;R;R;R;R]
+		  (Node(Leaf 1,Node(Leaf 2,Node(Leaf 3,Node(Leaf 4,Node(Leaf 5,Node(Leaf 6,Node(Leaf 7,Node(Leaf 8, Leaf 9)))))))));;
+
+subtree_from_ldir [R;R;R;R;R;R;R;L]
+		  (Node(Leaf 1,Node(Leaf 2,Node(Leaf 3,Node(Leaf 4,Node(Leaf 5,Node(Leaf 6,Node(Leaf 7,Node(Leaf 8, Leaf 9)))))))));;
+
 (* exercise 2.11 *)
   
 (* exercise 2.12 *)
