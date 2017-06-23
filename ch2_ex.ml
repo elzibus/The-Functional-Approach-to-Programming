@@ -1,4 +1,8 @@
 
+#mod_use "ch2.ml" ;;
+
+open Ch2  
+  
 (* exercise 2.1 *)
 
 (* TODO *)
@@ -8,8 +12,6 @@
 (* https://en.wikipedia.org/wiki/Complex_number#Elementary_operations *)
 (* more in https://github.com/ocsigen/js_of_ocaml/blob/master/examples/hyperbolic/hypertree.ml *)
 (* examples from here: http://www.mesacc.edu/~scotz47781/mat120/notes/ *)
-
-type complex = { re_part: float; im_part: float } ;;
 
 let cx_conjugate {re_part=re; im_part=im} = {re_part=re; im_part=(-1.*.im)} ;;
   
@@ -45,11 +47,6 @@ cx_div {re_part=3. ; im_part= 2.}
 let cx_norm c = sqrt( cx_sq_norm c );;
 
 (* exercise 2.3 *)
-
-let rec it_list f e l =
-  match l with
-    [] -> e
-  | (a::l) -> it_list f (f e a) l ;;
   
 let maxi cmp l = it_list (fun a b -> if (cmp a b) then a else b) (List.hd l) (List.tl l) ;;
   
@@ -71,22 +68,6 @@ let minmax gt l = it_list (fun (a,b) c -> let p1 = if (gt a c) then c else a in
 minmax ( > ) [1;2;3;2;1;3;2;4;6;78] ;;
 
 (* exercise 2.5 *)  
-
-let rec list_it f l e =
-  match l with
-    [] -> e
-  | (a::l) -> f a (list_it f l e) ;;
-
-let partition test l =
-  let switch elem (l1, l2) =
-    if test elem then (l1, elem::l2) else (elem::l1, l2)
-  in list_it switch l ([],[]) ;;
-
-let rec quicksort order l =
-  match l with
-    [] -> []
-  | a::l -> let (l1,l2) = partition (order a) l in
-	    (quicksort order l1) @ (a::(quicksort order l2)) ;;
   
 let pair1sort = quicksort ( fun (x,_) (y,_) -> x < y) ;;
 
@@ -110,15 +91,13 @@ lexisort ( < ) ( > ) [(1,'2');(1,'3');(1,'1');(10,'a');(0,'0');(2,'4')] ;;
 (* a0 * x^0 + a1 * x^1 + a2 * x^2 + ... *)
 (* [] is equivalent to [0] *)
   
-type polynom = float list ;;
-  
 let string_of_monom coef deg =
   if deg = 0 then string_of_float coef
   else if deg = 1 then string_of_float coef ^ "*" ^ "x"
   else if coef = 1.0 then "x^" ^ (string_of_int deg)
   else (string_of_float coef) ^ "*" ^ "x^" ^ (string_of_int deg) ;;
   
-let string_of_polynom (polynom:polynom) =
+let string_of_polynom polynom =
   if polynom = [] || polynom = [0.0] then "0.0"
   else let rec sop_helper p deg res =
 	 match p with
@@ -133,7 +112,7 @@ string_of_polynom [1.0;2.0;1.0] ;;
     
 string_of_polynom [0.0;0.0;4.0;0.0;0.0;0.0;0.0;8.0] ;;
   
-let rec add_polynom (p1:polynom) (p2:polynom) =
+let rec add_polynom p1 p2 =
   match (p1,p2) with
     ([],p2) -> p2
   | (p1,[]) -> p1
@@ -141,15 +120,10 @@ let rec add_polynom (p1:polynom) (p2:polynom) =
 
 let p = add_polynom [1.0;0.0;4.0;0.0;0.0;0.0;0.0;0.0;5.0] [1.0;2.0;1.0] in
     string_of_polynom p ;;
-
-let rec map f l =
-  match l with
-    [] -> []
-  | (a::l) -> (f a)::(map f l) ;;
   
 (* prefixing a polynom in this representation with a 0.0 is the same as multiplying by x *)
   
-let rec mul_polynom (p1:polynom) (p2:polynom) =
+let rec mul_polynom p1 p2 =
   match (p1,p2) with
     ([],p2) -> [0.0]
    |(p1,[]) -> [0.0]
@@ -171,7 +145,7 @@ let p =  mul_polynom [-1.0] [1.0;0.0;4.0;0.0;0.0;0.0;0.0;0.0;5.0] in
 let p = mul_polynom [2.0;3.0] [5.0;- 7.0;4.0] in
     string_of_polynom p ;;
 	
-let eval_polynom (p:polynom) x =
+let eval_polynom p x =
   let rec ep_helper p deg =
     match p with
       [] -> 0.0
@@ -185,7 +159,7 @@ eval_polynom [10.0] 100.0 ;;
 
 eval_polynom [6.0;0.0;- 1.0; 3.0; 1.0] (- 3.0) ;;
   
-let deriv_polynom (p:polynom) =
+let deriv_polynom p =
   let lp = List.length p in
   if lp = 0 || lp = 1 then [0.0]
   else let rec dp_helper p i =
@@ -205,7 +179,7 @@ let p =  deriv_polynom [0.0;0.0;1.0] in
     string_of_polynom p ;;
 
 (* (+ constant) won't be handled.. *)  
-let integr_polynom (p:polynom) =
+let integr_polynom p =
   let lp = List.length p in
   if lp = 0 || p = [0.0] then [0.0]
   else let rec ip_helper p i =
@@ -235,8 +209,6 @@ let p = integr_polynom [0.0;5.0] in
   
 (* exercise 2.9 *)
 
-type 'a tree = Leaf of 'a
-	     | Node of 'a tree * 'a tree ;;
 
 let set_of_tree equiv t =
   let rec sot_helper t set =

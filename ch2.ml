@@ -46,8 +46,12 @@ function
   
 (function Club -> 1 | Diamond -> 2 | Heart -> 3 | Spade -> 4) Diamond ;;
 
-type bool = true | false ;;
-
+(* you could redefine bool but I don't do it here as it creates issues if
+ * this code is to be included from another file with mod_use..
+ *
+ *  type bool = true | false ;;
+ *)
+  
 (* 2.2.2 Constructors with Arguments *)
 
 type num = Int of int | Float of float ;;
@@ -67,8 +71,10 @@ let add_num = function
 type angle = Angle of float ;;
 
 (* ! no "==" in Ocaml for type abbreviations *)
+
+(* Note: renamed so that this file can be made into a module *)
   
-type intpair = int * int ;;
+type intpair_abbrev = int * int ;;
   
 type intpair = Intpair of int * int ;;
 
@@ -454,16 +460,18 @@ member ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 1 [1;2;3] ;;
 
 member ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 100 [1;2;3] ;;
 
-let rec add_to_set (order,equiv) elem list =
+(* new name as previous function is used in the exercises *)
+
+let rec add_to_set2 (order,equiv) elem list =
   match list with
     [] -> [elem]
   | (a::l) -> if order(elem,a) then elem::a::l
 	      else if equiv(elem,a) then a::l
-	      else a::add_to_set (order, equiv) elem l ;;
+	      else a::add_to_set2 (order, equiv) elem l ;;
 		  
-add_to_set ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'f' ['a';'g';'z'] ;;
+add_to_set2 ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'f' ['a';'g';'z'] ;;
 
-add_to_set ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'g' ['a';'g';'z'] ;;
+add_to_set2 ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) 'g' ['a';'g';'z'] ;;
 
 let rec inter (order, equiv) = function
     ([],_) -> []
@@ -477,19 +485,21 @@ inter ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g'], ['a';'g';'z']) ;;
   
 inter ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g';'h'], ['g';'h']) ;;
 
-let rec union (order, equiv) = function
+(* new name as previous function is used in the exercises *)
+  
+let rec union2 (order, equiv) = function
     ([], l2) -> l2
   | (l1, []) -> l1
   | ((a1::l1 as ll1), (a2::l2 as ll2)) ->
-     if equiv(a1,a2) then a1::union (order, equiv) (l1, l2)
-     else if order(a1,a2) then a1::union (order, equiv) (l1, ll2)
-     else a2::union (order,equiv) (ll1, l2) ;;
+     if equiv(a1,a2) then a1::union2 (order, equiv) (l1, l2)
+     else if order(a1,a2) then a1::union2 (order, equiv) (l1, ll2)
+     else a2::union2 (order,equiv) (ll1, l2) ;;
 				 
-union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g'], ['a';'g';'z']) ;;
+union2 ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g'], ['a';'g';'z']) ;;
   
-union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g';'h'], ['g';'h']) ;;
+union2 ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) (['g';'h'], ['g';'h']) ;;
 
-union ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) ([1;2;3;4;5],[3;4;5;6]) ;;
+union2 ((fun (x,y) -> x < y),(fun (x,y) -> x = y)) ([1;2;3;4;5],[3;4;5;6]) ;;
   
 (* 2.3.4 Searching in a List *)
 
