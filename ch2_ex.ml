@@ -209,7 +209,6 @@ let p = integr_polynom [0.0;5.0] in
   
 (* exercise 2.9 *)
 
-
 let set_of_tree equiv t =
   let rec sot_helper t set =
     match t with
@@ -232,6 +231,8 @@ let t1 = inttree_of_string "(1,(2,(3,(4,(4,(3,(2,1)))))))" in
 
 type direction = L | R ;;
 
+(* TODO: more work needed here *)  
+  
 let subtree_from_ldir ldir t =
   let rec sfl_helper ldir t step1 =
     match (ldir,t) with
@@ -299,4 +300,97 @@ let t = Node(Node(Node(Leaf "A", Leaf "B"), Node(Leaf "C", Leaf "D")), Leaf "E")
   
 (* exercise 2.12 *)
   
+let lorem_ipsum = "lorem ipsum dolor sit amet, consectetur adipiscing elit. mauris eget elit semper, molestie ligula a, sagittis sem. quisque ullamcorper neque libero, in elementum arcu malesuada non. ut in eleifend sapien. etiam a cursus velit. donec nec lorem ac metus commodo aliquam. mauris semper nisi et ante placerat scelerisque. vestibulum fringilla efficitur sollicitudin. suspendisse quis ante vehicula, tincidunt ligula ut, viverra justo. etiam auctor rutrum arcu nec eleifend. etiam venenatis vitae ipsum at pretium. etiam non vestibulum orci. vivamus ultrices tortor sit amet ante porttitor, id volutpat sapien dapibus. etiam dapibus varius metus sit amet venenatis. etiam consequat justo a convallis ullamcorper." ;;
 
+String.length lorem_ipsum ;;
+
+(* break it into a list of characters *)
+
+let string_to_lchar str =
+  let rec stl_helper str i res =
+    if i = String.length str then res
+    else stl_helper str (i+1) (res @ [str.[i]])
+  in
+  stl_helper str 0 [] ;;
+  
+let char_counts lchar =
+  let rec cc_helper lchar cur count =
+    match lchar with
+      [] -> [(cur, count)]
+     |(c::cs)-> if c = cur then cc_helper cs cur (count+1)
+		else (cur, count)::cc_helper (c::cs) c 0
+  in
+  cc_helper lchar (List.hd lchar) 0 ;;
+
+(* ! if I use directly "<" below for the comparison, I get a '_a which
+   specializes to char after its first use...
+   passing an "order" function solves this *)
+  
+let pair_sort_snd order =  quicksort ( fun (_,x) (_,y) -> order x y ) ;;
+  
+let rec build_code pairs =
+  match pairs with
+    [] -> failwith "no input"
+   |[p] -> fst p
+   |(p1::p2::ps) -> let new_pair = (Node( fst(p1), fst(p2)), snd(p1) +. snd(p2)) in
+		    build_code (pair_sort_snd ( < ) ([new_pair] @ ps)) ;;
+
+let sorted_list_char = quicksort ( < ) (string_to_lchar lorem_ipsum) ;;
+
+let counts = char_counts sorted_list_char ;;
+
+let total = sigma (map (fun (_,y) -> y) counts) ;;
+
+let pair_prob = map (fun (x,y) -> (Leaf x, float_of_int y /. float_of_int total)) counts ;;
+
+let rec sumf l =
+  match l with
+    [] -> 0.0
+   |(x::xs) -> x +. sumf xs ;;
+
+(* sum should be 1.0 *)  
+sumf (map (fun elt -> snd(elt)) pair_prob) ;;
+
+(* now the pairs need to be sorted according to the second element *)
+  
+let pair_prob_sorted = pair_sort_snd ( < ) pair_prob ;;
+
+build_code pair_prob_sorted ;;
+
+build_code [(Leaf 12, 0.5); (Leaf 54, 0.5)] ;;
+
+let get_symbol_codes t =
+  let rec gs_helper t path res =
+    match t with
+    | Leaf l -> (Leaf l, path)::res
+    | Node ( n1, n2) -> (gs_helper n1 (path @ [L]) res)
+			@ (gs_helper n2 (path @ [R]) res)
+  in
+  gs_helper t [] [] ;;  
+
+get_symbol_codes (build_code pair_prob_sorted) ;;
+
+walk_tree_ldir [L; L; R; L;                      (* "l" *)
+		R; R; L; L; R;                   (* "o" *)
+		L; L; L; R;                      (* "r" *)
+		L; R; L;                         (* "e" *)
+		L;L;R;R]                         (* "m" *)
+	       (build_code pair_prob_sorted) ;;
+
+get_symbol_codes (build_code [(Leaf 12, 0.5); (Leaf 54, 0.5)]) ;;
+  
+let get_binary_codes t =
+  let rec gs_helper t path res =
+    match t with
+    | Leaf l -> (Leaf l, path)::res
+    | Node ( n1, n2) -> (gs_helper n1 ("0" ^ path) res)
+			@ (gs_helper n2 ("1" ^ path) res)
+  in
+  gs_helper t "" [] ;;  
+
+(* in the following code, space is the most frequent char in
+ * the input string and gets the shortest code, as expected *)
+get_binary_codes (build_code pair_prob_sorted) ;;
+
+get_binary_codes (build_code [(Leaf 12, 0.5); (Leaf 54, 0.5)]) ;;
+  
