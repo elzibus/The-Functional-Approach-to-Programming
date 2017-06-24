@@ -277,6 +277,25 @@ subtree_from_ldir [R;R;R;R;R;R;R;L]
 		  (Node(Leaf 1,Node(Leaf 2,Node(Leaf 3,Node(Leaf 4,Node(Leaf 5,Node(Leaf 6,Node(Leaf 7,Node(Leaf 8, Leaf 9)))))))));;
 
 (* exercise 2.11 *)
+
+let walk_tree_ldir dl root =
+  let rec wtl_helper dl' t res pass1 =
+    match (dl',t) with
+      ([], Leaf l) -> if not pass1 then Some (res @ [l]) else None
+     |(ds, Leaf l) -> wtl_helper ds root (res @ [l]) false
+     |([], Node (_,_)) -> None
+     |(d::ds), Node(n1, n2) -> if d = L then wtl_helper ds n1 res false else wtl_helper ds n2 res false
+  in
+  wtl_helper dl root [] true ;;
+
+let t = Node(Node(Node(Leaf "A", Leaf "B"), Node(Leaf "C", Leaf "D")), Leaf "E") in
+    walk_tree_ldir [L;L;R;R;L;R;L] t ;;
+
+let t = Node(Node(Node(Leaf "A", Leaf "B"), Node(Leaf "C", Leaf "D")), Leaf "E") in
+    walk_tree_ldir [L;R;R;  R;  L;R;L; L;L;L; L;R;R; R] t ;;
+
+let t = Node(Node(Node(Leaf "A", Leaf "B"), Node(Leaf "C", Leaf "D")), Leaf "E") in
+    walk_tree_ldir [R;R;L] t ;;
   
 (* exercise 2.12 *)
   
