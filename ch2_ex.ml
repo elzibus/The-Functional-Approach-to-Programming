@@ -202,10 +202,109 @@ let p = integr_polynom [5.0] in
 let p = integr_polynom [0.0;5.0] in
     string_of_polynom p ;;
   
-  
 (* exercise 2.8 *)
 
-(* TODO *)  
+(* a2 * x^2 + ... *)
+(* [(a2, 2); .. ] *)
+
+let string_of_monom2 m =
+  let coef = fst m in 
+  let deg = snd m in
+  if deg = 0 then string_of_float coef
+  else if deg = 1 then string_of_float coef ^ "*" ^ "x"
+  else if coef = 1.0 then "x^" ^ (string_of_int deg)
+  else (string_of_float coef) ^ "*" ^ "x^" ^ (string_of_int deg) ;;
+  
+let string_of_polynom2 polynom =
+  let rec sop2_helper p res =
+    match p with
+      [] -> res
+    | (a::pr) -> if res = "" then sop2_helper pr (string_of_monom2 a)
+		 else sop2_helper pr (res ^ " + " ^ string_of_monom2 a)
+  in
+  sop2_helper polynom "" ;;
+  
+string_of_polynom2 [(1.0, 0);(2.0,1);(1.0,2)] ;;
+
+let rec add_polynom2 p1 p2 =
+  match (p1,p2) with
+    ([],p2) -> p2
+  | (p1,[]) -> p1
+  | ((c1,d1)::pr1,(c2,d2)::pr2) -> if d1 = d2 then (c1 +. c2,d1)::add_polynom2 pr1 pr2
+				   else if d1 < d2 then (c1,d1)::add_polynom2 pr1 p2
+				   else (c2,d2)::add_polynom2 p1 pr2 ;;
+
+let p = add_polynom2 [(1.0,0);(4.0,2);(5.0,8)] [(1.0,0);(2.0,1);(1.0,2)]
+    in string_of_polynom2 p ;;
+
+let p = add_polynom2 [(1.0,0)] [(1.0,50)]
+    in string_of_polynom2 p ;;
+
+let rec mul_polynom2 p1 p2 =
+  match (p1,p2) with
+    ([],p2) -> []
+   |(p1,[]) -> []
+   | ((c1,d1)::pr1, p2) -> add_polynom2 (mul_polynom2 pr1 p2)
+					(map (fun (x,y) -> (x*.c1, d1+y)) p2) ;;
+
+let p = mul_polynom2 [(1.0,0)] [(1.0,0)] in
+    string_of_polynom2 p ;;
+  
+let p = mul_polynom2 [(1.0,0);(4.0,2);(5.0,8)] [(1.0,0);(2.0,1);(1.0,2)]
+    in string_of_polynom2 p ;;
+
+let p = mul_polynom2 [(1.0,0);(4.0,2);(5.0,8)] [(1.0,0);(2.0,1);(1.0,2)]
+    in string_of_polynom2 p ;;
+
+let p =  mul_polynom2 [(-1.0,0)] [(1.0,0);(4.0,2);(5.0,8)] in
+    string_of_polynom2 p ;;
+
+let p = mul_polynom2 [(2.0,0);(3.0,1)] [(5.0,0);(- 7.0,1);(4.0,2)] in
+    string_of_polynom2 p ;;
+
+let eval_polynom2 p x =
+  let rec ep2_helper p =
+    match p with
+      [] -> 0.0
+    |((c,d)::l) -> c *. (x ** (float_of_int d)) +. ep2_helper l
+  in
+  ep2_helper p ;;
+  
+eval_polynom2 [(0.0,0);(1.0,1);(1.0,2)] 1.0 ;;
+
+eval_polynom2 [(10.0,0)] 100.0 ;;
+
+eval_polynom2 [(6.0,0);(0.0,1);(- 1.0,2); (3.0,3); (1.0,4)] (- 3.0) ;;
+
+let rec deriv_polynom2 p =
+  match p with
+    [] -> []
+  | ((c,d)::l) -> if d = 0 then deriv_polynom2 l
+		  else (c *. (float_of_int d), d-1)::deriv_polynom2 l ;;
+  
+let p =  deriv_polynom2 [(1.0,0);(4.0,2);(5.0,8)]
+    in string_of_polynom2 p ;;
+
+let p =  deriv_polynom2 [(1.0,2)] in
+    string_of_polynom2 p ;;
+
+let p =  deriv_polynom2 [(1.0, 0)] in
+    string_of_polynom2 p ;;
+
+let rec integr_polynom2 p =
+  match p with
+    [] -> []
+  | ((c,d)::l) -> let c = if d = 0 then c else (c /. ((float_of_int d) +. 1.0)) in
+		  (c, d + 1)::integr_polynom2 l ;;
+  
+let p = integr_polynom2 [(1.0,0);(2.0,2);(1.0,3);(4.0,5)] in
+    string_of_polynom2 p ;;
+  
+let p = integr_polynom2 [(1.0,0)] in
+    string_of_polynom2 p ;;
+
+let p = integr_polynom2 [(5.0,1)] in
+    string_of_polynom2 p ;;
   
 (* exercise 2.9 *)
 
@@ -231,18 +330,13 @@ let t1 = inttree_of_string "(1,(2,(3,(4,(4,(3,(2,1)))))))" in
 
 type direction = L | R ;;
 
-(* TODO: more work needed here *)  
-  
 let subtree_from_ldir ldir t =
   let rec sfl_helper ldir t step1 =
     match (ldir,t) with
-      ([],t) -> Some t
-     |([L], Leaf l) -> if not step1 then Some (Leaf l) else None
-     |([R], Leaf l) -> if not step1 then Some (Leaf l) else None
-     |([L], Node(n1,_)) -> Some n1
-     |([R], Node(_,n2)) -> Some n2
-     |(L::rd, Node(n1,n2)) -> sfl_helper rd n1 false
-     |(R::rd, Node(n1,n2)) -> sfl_helper rd n2 false
+      ([],t) -> if not step1 then Some t else None
+     |(_, Leaf l) -> if not step1 then Some (Leaf l) else None
+     |(L::rd, Node(n1,n2)) -> if rd = [] then Some n1 else sfl_helper rd n1 false
+     |(R::rd, Node(n1,n2)) -> if rd = [] then Some n2 else sfl_helper rd n2 false
   in
   sfl_helper ldir t true ;;
     
@@ -254,19 +348,15 @@ subtree_from_ldir [R;R;R] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
 
 subtree_from_ldir [R] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
   
-subtree_from_ldir [] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
-
 (* My understanding from the u=u1u2 rule in the exercise is that
  * the following call needs to return false. By this I mean u1 cannot be empty:
  * at least one step needs to be taken in the tree.
  * step1 is a bool that encodes this information in the function definition.
  *)
+
+subtree_from_ldir [] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
   
 subtree_from_ldir [R] (Leaf 5) ;;
-
-subtree_from_ldir [L] (Leaf 5) ;;
-
-subtree_from_ldir [] (Leaf 5) ;;
 
 subtree_from_ldir [R;R]
 		  (Node(Leaf 1,Node(Leaf 2, Leaf 3))) ;;
@@ -276,6 +366,8 @@ subtree_from_ldir [R;R;R;R;R;R;R;R]
 
 subtree_from_ldir [R;R;R;R;R;R;R;L]
 		  (Node(Leaf 1,Node(Leaf 2,Node(Leaf 3,Node(Leaf 4,Node(Leaf 5,Node(Leaf 6,Node(Leaf 7,Node(Leaf 8, Leaf 9)))))))));;
+
+subtree_from_ldir [L;L;L;L;L] (Node(Leaf 3,Node(Leaf 4, Leaf 5))) ;;
 
 (* exercise 2.11 *)
 
