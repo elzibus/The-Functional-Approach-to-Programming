@@ -5,8 +5,41 @@ open Ch2
   
 (* exercise 2.1 *)
 
-(* TODO *)
+let pp_translate point x y =
+  {xcoord = point.xcoord +. x;
+   ycoord = point.ycoord +. y} ;;
+  
+pp_translate {xcoord=0.0; ycoord=0.0} 1.0 2.0 ;;
+  
+let pi = 4.0 *. atan 1.0;;
 
+(* theta in radians, rotation counter-clockwise around the origin *)
+let pp_rotate point theta =
+  let x = point.xcoord in
+  let y = point.ycoord in
+  {xcoord = x *. (cos theta) -. y *. (sin theta);
+   ycoord = x *. (sin theta) +. y *. (cos theta)} ;;
+  
+pp_rotate {xcoord=2.3;ycoord=5.6} 0.0 ;;
+
+pp_rotate {xcoord=0.0;ycoord=0.0} 110.0 ;;
+
+pp_rotate {xcoord=1.0;ycoord=0.0} (pi/.2.0) ;;
+  
+pp_rotate {xcoord=1.0;ycoord=0.0} pi ;;
+
+pp_rotate {xcoord=1.0;ycoord=0.0} (2.0*.pi) ;;
+
+let pp_scale point factor =
+  {xcoord = point.xcoord *. factor;
+   ycoord = point.ycoord *. factor} ;;
+
+pp_scale {xcoord=0.0; ycoord=0.0} 10.0 ;;  
+
+pp_scale {xcoord=10.0; ycoord=10.0} 0.0 ;;  
+
+pp_scale {xcoord=1.0; ycoord=2.0} 10.0 ;;  
+  
 (* exercise 2.2 *)
 
 (* https://en.wikipedia.org/wiki/Complex_number#Elementary_operations *)
