@@ -99,3 +99,22 @@ sentence (fun (x,y) -> let m = (x +. y)/.2.0 in
 			 print_newline()) ;;
 	    
 (* 4.3.1 Constructing Streams *)
+
+#use "topfind" ;;
+#camlp4o ;;
+   
+[< >] ;;
+  
+[< ''a'; ''b'; ''c' >] ;;
+  
+[ 'a'; 'b'; 'c' ] ;;
+
+let n = 0 in
+    [< 'n+1; 'n+2; 'n+3 >] ;;
+
+let s1 = [< ''a'; ''b'; ''c' >] in
+    [< ''0'; s1 >] ;;
+
+let s1 = [< ''a'; ''b'; ''c' >] in
+    let s2 = [< ''d'; ''e'; ''f' >] in
+    [< s1; ''0'; s2 >] ;;
