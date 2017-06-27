@@ -101,6 +101,7 @@ sentence (fun (x,y) -> let m = (x +. y)/.2.0 in
 (* 4.3.1 Constructing Streams *)
 
 #use "topfind" ;;
+
 #camlp4o ;;
    
 [< >] ;;
@@ -118,3 +119,22 @@ let s1 = [< ''a'; ''b'; ''c' >] in
 let s1 = [< ''a'; ''b'; ''c' >] in
     let s2 = [< ''d'; ''e'; ''f' >] in
     [< s1; ''0'; s2 >] ;;
+
+[ 1; (print_string "Hello\n"; 2); 3] ;;
+  
+[< '1; '(print_string "Hello\n"; 2); '3 >] ;;
+
+let ints =
+  let rec ints_from n = [< 'n; ints_from (n+1) >] in
+  ints_from 0 ;;
+
+Stream.of_channel ;;  
+
+let read = parser [< 'x >] -> x ;;  
+
+read ints ;;
+  
+read ints ;;
+  
+read ints ;;
+  
