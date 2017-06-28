@@ -78,8 +78,22 @@ let rec print_inttree = function
 		  print_string ",";
 		  print_inttree t2;
 		  print_string ")" ;;
-		  
-(* new_printer seems not to be in base Ocaml anymore *)
+
+print_inttree  (Node(Leaf 1,Node (Leaf 2,Node (Leaf 3, Leaf 4)))) ;;
+
+(* new_printer has been replaced with install_printer
+ * Thanks github.com/Fourchaux !
+ *)
+  
+let rec print_inttree' = function
+  | Leaf n -> Format.print_int n
+  | Node (t1, t2) ->
+    Format.print_string "("; print_inttree' t1; Format.print_string "," ;
+    print_inttree' t2; Format.print_string ")" ;;
+
+#install_printer print_inttree' ;;
+
+Node (Leaf 3, Node (Leaf 4, Leaf 5)) ;;
 
 (* 4.2.5 Example: Interaction *)
 
