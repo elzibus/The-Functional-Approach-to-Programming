@@ -152,3 +152,48 @@ read ints ;;
   
 read ints ;;
   
+match [< '1; '2; '3 >] with parser [< >] -> true;;
+  
+(* 4.4.1 Vectors *)
+
+let v = [|1; 2; 3|] ;;
+
+v ;;
+
+Array.length v;;
+
+(* BUG? replaced vect_length by Array.length but also reduced the
+   upper bound by 1 *)  
+
+let mem_vect cmp e v =
+  let rec find m n =
+    if m > n then false else
+      let p = (m+n)/2 in
+      if v.(p) = e then true else
+	if cmp (v.(p)) e then find (p+1) n
+	else find m (p-1)
+  in
+  find 0 ((Array.length v)-1) ;;
+
+mem_vect ( < ) 7 [| 2; 3; 5; 6; 7; 10; 12; 15|] ;;
+
+mem_vect ( < ) 16 [| 2; 3; 5; 6; 7; 10; 12; 15|] ;;
+
+mem_vect ( < ) 1 [| 2; 3; 5; 6; 7; 10; 12; 15|] ;;
+  
+let v = [|0; 1; 2; 3|] ;;
+
+v.(1) <- 7 ;;
+
+v ;;
+  
+let swap v i j =
+  let x = v.(i) in
+  begin
+    v.(i) <- v.(j) ;
+    v.(j) <- x
+  end ;;
+
+swap v 1 2 ;;
+
+v ;;
