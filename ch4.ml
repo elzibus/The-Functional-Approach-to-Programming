@@ -202,18 +202,40 @@ v ;;
 let place c v i j =
   let rec place_rec i' j' =
     let rec move_right p =
-      if c (v.(i)) (v.(p)) || p = j' then p else move_right (p+1)
+      if c (v.(i)) (v.(p)) || p = j' then p
+      else move_right (p+1)
     and
       move_left p =
-      if c (v.(p)) (v.(i)) || p = i' then p else move_left (p-1)
+      if c (v.(p)) (v.(i)) || p = i' then p
+      else move_left (p-1)
     in
-    let k = move_right i' and l = move_left  j' in
-    if k>l then (swap v i l; l) else
-      if k=l then
-	if c (v.(l)) (v.(i)) then (swap v i l; l) else i 
+    let k = move_right i' and l = move_left  j'
+    in
+    if k>l then (swap v i l; l)
+    else
+      if k=l then if c (v.(l)) (v.(i)) then (swap v i l; l)
+		  else i 
       else (swap v k l; place_rec (k+1) (l-1))
   in
   place_rec (i+1) j ;;
+
+let v = [|2; 5; 1; 3; 7; 5; 3; 5; 1; 9; 10; 2; 13|] ;;
+(*        0  1  2  3  4  5  6  7  8  9  10  11 12     *)
+place ( < ) v 0 ((Array.length v)-1);;
+v ;;
+
+let v = [|2; 5; 1; 3; 7; 5; 3; 5; 1; 9; 10; 2; 13|] ;;
+place ( < ) v 1 ((Array.length v)-1);;
+v ;;
+
+let v = [|2; 5; 1; 3; 7; 5; 3; 5; 1; 9; 10; 2; 13|] ;;
+place ( < ) v 3 ((Array.length v)-1);;
+v ;;
+
+let v = [|2; 5; 1; 3; 7; 5; 3; 5; 1; 9; 10; 2; 13|] ;;
+place ( < ) v 9 ((Array.length v)-1);;
+v ;;
+
   
 let quicksort c v =
   let rec quick i j =
@@ -320,17 +342,28 @@ let mk_circular_list e =
 let last ln = ln.info ;;
 
 let first ln = (ln.next).info ;;
-  
+
+let test = mk_circular_list 1 ;;
+
+first test ;;
+
+last test ;;
+
 let insert_head e l =
   let x = {info=e; next=l.next}
   in l.next <- x;
      l ;;
+  
+insert_head 2 test ;;
 
+first test ;;
+
+last test ;;  
+  
 let insert_tail e l =
   let x={info=e; next=l.next}
-  in
-  l.next <- x;
-  x;;
+  in l.next <- x;
+     x;;
 
 let elim_head l =
   l.next <- (l.next).next;
