@@ -1,4 +1,5 @@
 
+#mod_use "ch2.ml" ;;
 
 (*
  * Hints for the Ocaml user, this was run on Ocaml 4.03.0
@@ -197,3 +198,228 @@ let swap v i j =
 swap v 1 2 ;;
 
 v ;;
+
+let place c v i j =
+  let rec place_rec i' j' =
+    let rec move_right p =
+      if c (v.(i)) (v.(p)) || p = j' then p else move_right (p+1)
+    and
+      move_left p =
+      if c (v.(p)) (v.(i)) || p = i' then p else move_left (p-1)
+    in
+    let k = move_right i' and l = move_left  j' in
+    if k>l then (swap v i l; l) else
+      if k=l then
+	if c (v.(l)) (v.(i)) then (swap v i l; l) else i 
+      else (swap v k l; place_rec (k+1) (l-1))
+  in
+  place_rec (i+1) j ;;
+  
+let quicksort c v =
+  let rec quick i j =
+    if i<j then
+      let p = place c v i j
+      in
+      quick i (p-1);
+      quick (p+1) j
+  in
+  quick 0 ((Array.length v)-1) ;;
+
+let v = [| 18; 2; 13; 4; 6; 25; 1; 10; 12; 9; 15; 7; 3|];;  
+
+quicksort ( < ) v ;;
+  
+v ;;
+
+quicksort ( > ) v ;;
+  
+v ;;
+  
+  
+(* Records with Modifiable Fields *)
+
+type planar_point = { mutable xcoord: float; mutable ycoord: float } ;;
+  
+let translate (dx, dy) pt =
+  pt.xcoord <- pt.xcoord +. dx ;
+  pt.ycoord <- pt.ycoord +. dy ;
+  pt ;;
+  
+let point = {xcoord=2.0; ycoord=2.0} ;;
+
+translate (1.2, 2.8) point ;;  
+
+point ;;
+
+let pt1 = {xcoord=2.0; ycoord=2.0} ;;
+
+let pt2 = {xcoord=2.0; ycoord=2.0} ;;
+  
+let pt3 = pt1 ;;
+
+pt1 = pt2 ;;  
+
+pt1 = pt3 ;;  
+
+pt1 == pt2 ;;
+
+pt1 == pt3 ;;    
+
+pt1.xcoord <- 1.0 ;;
+
+pt1 ;;
+
+pt3 ;;
+
+pt2 ;;
+
+(fun ((x,y),z) -> (x,y)) ((1,2),3) ;;
+  
+(fun ((x,y) as t,z) -> t) ((1,2),3) ;;
+
+(* 4.4.3 References *)
+
+let c = ref 0 ;;
+  
+let s = ref "Hello" ;;
+
+let l = [ref 1; ref 2; ref 3] ;;
+
+!c ;;
+
+!(List.hd l) ;;
+
+c:= !c + 3 ;;
+
+c ;;
+
+List.hd (List.tl l) := 7 ;;
+
+l ;;
+
+let gensym =
+  let count = ref (-1) in
+  fun() -> count := !count + 1;
+	   "ident" ^ (string_of_int !count) ;;
+
+gensym() ;;
+
+gensym() ;;
+
+gensym() ;;
+
+  
+(* 4.4.4 Circular lists *)
+
+type 'a lnode = { info: 'a; mutable next: 'a lnode} ;;
+
+let mk_circular_list e =
+  let rec x = {info=e; next=x}
+  in x ;;
+
+let last ln = ln.info ;;
+
+let first ln = (ln.next).info ;;
+  
+let insert_head e l =
+  let x = {info=e; next=l.next}
+  in l.next <- x;
+     l ;;
+
+let insert_tail e l =
+  let x={info=e; next=l.next}
+  in
+  l.next <- x;
+  x;;
+
+let elim_head l =
+  l.next <- (l.next).next;
+  l ;;
+
+let l = mk_circular_list 1
+    in Ch2.list_it insert_tail [5;4;3;2] l;;
+
+type 'a queue = Emptyqueue
+	      | Queue of 'a lnode ;;
+
+let enqueue x = function
+    Emptyqueue -> Queue (mk_circular_list x)
+  | (Queue ln) -> Queue (insert_tail x ln) ;;
+
+let q = enqueue 3 (enqueue 2 (enqueue 1 Emptyqueue));;
+  
+let dequeue = function
+    Emptyqueue -> failwith "dequeue: queue is empty"
+  | (Queue ln) -> if ln.next == ln then (Emptyqueue, ln.info)
+		  else let x = first ln
+		       in
+		       (Queue (elim_head ln), x) ;;
+
+let list_of_queue = function
+    Emptyqueue -> []
+  | (Queue ln) -> let ln1 = ln.next in
+		  let rec loq ln =
+		    if ln == ln1 then []
+		    else ln.info :: loq ln.next
+		  in
+		  ln1.info::loq ln1.next ;;
+
+list_of_queue Emptyqueue ;;
+
+list_of_queue q ;;
+
+let (q1, _) = dequeue q
+    in list_of_queue q1 ;;  
+  
+(* 4.4.5 Double Linked Lists *)
+  
+type 'a dblnode = {info: 'a;
+		   mutable prev: 'a dblnode;
+		   mutable next: 'a dblnode} ;;
+
+let mk_dbl_circular_list e =
+  let rec x = {info=e; prev=x; next=x}
+  in x ;;
+
+let dbl = mk_dbl_circular_list 1 ;;  
+  
+let insert_before e l =
+  let lprev = l.prev in
+  let x = {info=e; prev=lprev; next=l} in
+  lprev.next <- x;
+  l.prev <- x ;;
+
+insert_before 2 dbl ;;  
+insert_before 3 dbl ;;  
+  
+let insert_after e l =
+  let lnext = l.next in
+  let x = {info=e; prev=l; next=lnext} in
+  lnext.prev <- x;
+  l.next <- x ;;
+  
+insert_after 4 dbl ;;  
+insert_after 5 dbl ;;  
+
+let elim l =
+  let lprev = l.prev
+    and lnext = l.next
+  in
+  lprev.next <- lnext;
+  lnext.prev <- lprev;
+  lprev ;;
+
+(* 4.5 Semantics of Destructive Operations *)
+
+let sym c = ("ident" ^ (string_of_int c), c+1) ;;
+
+let (mysym, c) = sym 0 in
+    sym c ;;
+
+let compose c f g x =
+  let (v1, c1) = g c x
+  in
+  f c1 v1 ;;
+
+let update mem loc val_ = 
+  fun loc' -> if loc' = loc then val_ else mem loc ;;
