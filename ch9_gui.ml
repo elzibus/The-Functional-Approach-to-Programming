@@ -3,7 +3,7 @@
 
 (* 9.1.1 Geometric Plane *)
 
-type point = {xc: float; yc: float } ;;
+type point = { xc: float; yc: float } ;;
 
 let origin = {xc= 0.0; yc= 0.0} ;;
 
@@ -142,6 +142,8 @@ let scaling (sx, sy) =
 transform_point (scaling (2.0, 3.0))
 		{xc= 1.0 ; yc= -. 3.0} ;;
 
+(* 9.1.3 Constructing Images *)
+
 type sketch_part = Lift_pen
 		 | Ge of geom_element list ;;
 
@@ -203,16 +205,111 @@ let rec transform_sketch tr sk =
 								  let p4' = transform_point tr p4 in
 								  Curve (p1', p2', p3', p4'))
 			    g)) :: transform_sketch tr rest;;
-  
+
+(* 9.2 Drawing Trees *)
+
+(* 9.2.1 Drawing Principles *)
+
+(* "picture" yet to be introduced
+ * the center of a Seg is the barycenter of all points that compose the Seg
+ * the center of an Arc is its center
+ * the center of a Curve is the barycenter of its constituting points
+ *)
+
+let plist_center pl =
+  let rec sc_helper l x y n =
+    match l with
+      [] -> {xc = x /. n; yc = y/. n}
+    | (seg::xs) -> sc_helper xs (x +. seg.xc) (y +. seg.yc) (n +. 1.0)
+  in
+  sc_helper pl 0.0 0.0 0.0 ;;
+
+plist_center [origin; {xc=1.0;yc=1.0}] ;;
+
+(* center of a four point tuple *)
+
+let fpoint_center (pt1, pt2, pt3, pt4) =
+  {xc=(pt1.xc +. pt2.xc +. pt3.xc +. pt4.xc) /. 4.0;
+   yc=(pt1.yc +. pt2.yc +. pt3.yc +. pt4.yc) /. 4.0} ;;
+
+fpoint_center ({xc= -. 1.0; yc= -. 1.0},
+	       {xc= -. 1.0; yc=    1.0},
+	       {xc=    1.0; yc=    1.0},
+	       {xc=    1.0; yc= -. 1.0}) ;;
+let sk1 = 
+  let ptA = {xc= -. 3.0 ; yc= -. 3.0 } in
+  let ptB = {xc= -. 3.0 ; yc= -. 1.0 } in
+  let ptC = {xc= -. 1.0 ; yc= -. 1.0 } in
+  let ptD = {xc= -. 1.0 ; yc= -. 3.0 } in
+  let ptE = {xc= -. 3.0 ; yc=    4.0 } in     (* BUG in the book : y(E) = 4.0 not -. 4.0 *)
+  let ptF = {xc= -. 2.0 ; yc=    0.0 } in
+  let ptG = {xc=    0.0 ; yc=    5.0 } in
+  let ptH = {xc=    1.0 ; yc=    4.0 } in
+  let ptI = {xc=    3.0 ; yc=    0.0 } in
+  group_sketches [ (make_sketch [ Seg [ ptA; ptB; ptC; ptD; ptA] ]); 
+		   (make_sketch [ Curve ( ptE, ptF, ptG, ptH) ]); 
+		   (make_sketch [ Arc ( ptI, 2.0, 30.0, 290.0 ) ] ) ] ;;
+
+let center_sketch sk pt =
+  let temp = List.map (fun skp -> match skp with
+				    Lift_pen -> []
+				  | Ge ge -> List.map (fun elt -> match elt with
+								    Seg sl -> plist_center sl
+								  | Arc (p,_,_,_) -> p
+								  | Curve (p1,p2,p3,p4) -> fpoint_center (p1,p2,p3,p4))
+						      ge)
+		      sk
+  in
+  let center = plist_center ( List.flatten temp) in
+  transform_sketch (translation center.xc center.yc) sk ;;
+
+(* I am not using the line style parameter *)
+
+type tree_style =
+    { vdist: float;
+      hdist: float;
+      coef_list: float list} ;;
+
+type 'a btree = Empty
+	      | Bin of 'a btree * 'a * 'a btree ;;
+
+let draw_btree tsty t =
+  let rec drawr d cl ({xc=x; yc=y} as pt) = function
+    Empty -> []
+    | (Bin (Empty, pict, Empty)) -> center_sketch pict pt
+    | (Bin(t1, pict, t2)) -> let d = d *. (List.hd cl) in
+			     let pt1 = {xc = x -. d/. 2.0; yc = y -. tsty.vdist} in
+			     let pt2 = {xc = x +. d/. 2.0; yc = y -. tsty.vdist} in
+			     let line1 = make_sketch [Seg [pt; pt1]] in
+			     let line2 = make_sketch [Seg [pt; pt2]] in
+			     match (t1,t2) with
+				   (_, Empty) -> group_sketches [line1; center_sketch pict pt; drawr d (List.tl cl) pt1 t1]
+				 | (Empty, _) -> group_sketches [line2; center_sketch pict pt; drawr d (List.tl cl) pt2 t2]
+				 | _ -> group_sketches [line1; line2; center_sketch pict pt; drawr d (List.tl cl) pt1 t1;
+							drawr d (List.tl cl) pt2 t2]
+  in
+  drawr tsty.hdist tsty.coef_list origin t ;;
+
+(* following functions are from chapter 6 *)
+
+let rec btree_hom f v t =
+  match t with
+    Bin (t1,a,t2) -> f (btree_hom f v t1, a, btree_hom  f v t2)
+  | Empty -> v ;;
+ 
+let map_btree f t =
+  btree_hom (fun (t1,a,t2) -> Bin(t1, f a, t2))
+	    Empty t ;;
+
 (* ----------------------------------------------------------------------------------- *)
 (* FFI *)
 
 type context
 type canvas
-       
-type color = { mutable r: int ; mutable g: int; mutable b: int; mutable a: int } ;;
-type rect = { mutable x: float; mutable y: float; mutable w: float; mutable h: float } ;;
-  
+
+type color = { r: int ; g: int; b: int} ;;
+type rect = { x: float; y: float; w: float; h: float } ;;
+ 
 external layout_row_static: context -> float -> int -> int -> unit = "ocaml_nk_layout_row_static"
 external layout_row_dynamic: context -> float -> int -> unit = "ocaml_nk_layout_row_dynamic"
 external button_label: context -> string -> int = "ocaml_nk_button_label"
@@ -222,9 +319,10 @@ external gui_begin: context -> string -> float -> float -> float -> float -> int
 external gui_end: context -> unit = "ocaml_nk_end"
 external get_canvas: context -> canvas = "ocaml_nk_window_get_canvas"
 external get_region: context -> rect = "ocaml_nk_get_region"
-external line: canvas -> float -> float -> float -> float -> float -> unit = "dummy" "ocaml_nk_stroke_line"
-external arc: canvas -> float -> float -> float -> float -> float -> float -> unit = "dummy" "ocaml_nk_stroke_arc"
-external curve: canvas -> float -> float -> float -> float -> float -> float -> float -> float -> float -> unit = "dummy" "ocaml_nk_stroke_curve"
+
+external line: canvas -> float -> color -> point -> point -> unit = "ocaml_nk_stroke_line"
+
+external curve: canvas -> float -> color -> point -> point -> point -> point -> unit = "dummy" "ocaml_nk_stroke_curve"
   
 (* ----------------------------- *)
 
@@ -246,25 +344,27 @@ type pen_state = Up
 
 let draw_grid canvas transf xmin xmax ymin ymax =
   let steps = range_values_step xmin xmax 1.0 in
+  let gray1 = {r=150;g=150;b=150} in
+  let gray2 = {r=20;g=20;b=20} in
   List.iter (fun x -> let pt1 = {xc=x; yc= ymin} in
 		      let pt1'= transform_point transf pt1 in
 		      let pt2 = {xc=x; yc= ymax} in
-		      let pt2'= transform_point transf pt2 in		      
-		      line canvas 0.5 pt1'.xc pt1'.yc pt2'.xc pt2'.yc)
+		      let pt2'= transform_point transf pt2 in
+		      line canvas 0.5 gray1 pt1' pt2')
 	    steps;
   List.iter (fun x -> let pt1 = {xc= xmin; yc= x} in
 		      let pt1'= transform_point transf pt1 in
 		      let pt2 = {xc= xmax; yc=x} in
 		      let pt2'= transform_point transf pt2 in		      
-		      line canvas 0.5 pt1'.xc pt1'.yc pt2'.xc pt2'.yc)
+		      line canvas 0.5 gray1 pt1' pt2')
 	    steps;
   (* draw x and y axis *)
   let y1 = transform_point transf {xc=0.0; yc=ymin} in 
   let y2 = transform_point transf {xc=0.0; yc=ymax} in 
   let x1 = transform_point transf {xc=xmin; yc=0.0} in 
   let x2 = transform_point transf {xc=xmax; yc=0.0} in 
-  line canvas 3.0 y1.xc y1.yc y2.xc y2.yc ;
-  line canvas 3.0 x1.xc x1.yc x2.xc x2.yc ;;
+  line canvas 3.0 gray2 y1 y2 ;
+  line canvas 3.0 gray2 x1 x2 ;;
 
 let draw_sketch ctx sk (xmin,xmax) (ymin,ymax) (xcenter, ycenter) =
   let pen = ref Up in
@@ -289,14 +389,14 @@ let draw_sketch ctx sk (xmin,xmax) (ymin,ymax) (xcenter, ycenter) =
 										      ycur := pt.yc
 										      end
 										      else begin
-										      line canvas 4.0 !xcur !ycur pt.xc pt.yc;
+										      line canvas 4.0 {r=200;g=0;b=0} {xc = !xcur; yc = !ycur} pt;
 										      xcur := pt.xc;
 										      ycur := pt.yc
 										      end
 									   )
 									   pts
 						    | Arc (pt, r, amin, amax) -> failwith "I don't expect an Arc here.:"
-						    | Curve (a,c1,c2,b) -> curve canvas 4.0 a.xc a.yc c1.xc c1.yc c2.xc c2.yc b.xc b.yc)
+						    | Curve (a,c1,c2,b) -> curve canvas 4.0 {r=0;g=0;b=100} a c1 c2 b)
 					  g)
 	    sk' ;;
 

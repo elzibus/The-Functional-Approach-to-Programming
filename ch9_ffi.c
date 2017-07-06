@@ -8,8 +8,6 @@
 
 #define Context_val(v) ((struct nk_context *) (v))
 
-#define Panel_val(p) ((struct nk_panel *) (p))
-
 value ocaml_nk_get_region(value ctxv) {
 
   CAMLparam1(ctxv) ;
@@ -133,16 +131,6 @@ struct custom_operations nuklear_ops = {
   custom_compare_ext_default
 };
 
-value alloc_panel(void) {
-  value v = alloc_custom(&nuklear_ops, sizeof(struct nk_panel), 0, 1);
-  return v;
-}
-
-value ocaml_new_panel() {
-  CAMLparam0() ;
-  CAMLreturn(alloc_panel()) ;
-}
-
 value ocaml_nk_propertyi(value ctxv, value name, value min, value val, value max, value step, value fincpp) {
   
   CAMLparam5(ctxv, name, min, val, max) ;
@@ -190,62 +178,69 @@ void ocaml_gui(value ctxv) {
   caml_callback(*closure_f, ctxv) ;
 }
 
-void ocaml_nk_stroke_line(value canvasv, value thickness, value x1, value y1, value x2, value y2) {
+void ocaml_nk_stroke_line(value canvasv, value thickness, value col, value p1, value p2) {
   
-  CAMLparam5(canvasv, thickness, x1, y1, x2) ;
-  CAMLxparam1(y2) ;
+  CAMLparam5(canvasv, thickness, col, p1, p2) ;
 
-  const struct nk_color draw_color = nk_rgb(10, 170, 170);
+  int r = Long_val(Field(col, 0)) ;
+  int g = Long_val(Field(col, 1)) ;
+  int b = Long_val(Field(col, 2)) ;
+  
+  double x1 = Double_field(p1, 0) ;
+  double y1 = Double_field(p1, 1) ;
+
+  double x2 = Double_field(p2, 0) ;
+  double y2 = Double_field(p2, 1) ;
+  
+  const struct nk_color draw_color = nk_rgb(r,g,b);
 
   struct nk_command_buffer *canvas = Canvas_val(canvasv) ;
   
   nk_stroke_line(canvas,
-		 Double_val(x1), Double_val(y1),
-		 Double_val(x2), Double_val(y2),
+		 x1, y1,
+		 x2, y2,
 		 Double_val(thickness),
 		 draw_color) ;
   
   CAMLreturn(Val_unit) ;
 }
 
-void ocaml_nk_stroke_arc(value canvasv, value thickness, value xc, value yc, value radius, value amin, value amax) {
-  
-  CAMLparam5(canvasv, thickness, xc, yc, radius) ;
-  CAMLxparam2(amin, amax) ;
-
-  const struct nk_color draw_color = nk_rgb(10, 170, 170);
-
-  struct nk_command_buffer *canvas = Canvas_val(canvasv) ;
-  
-  nk_stroke_arc(canvas,
-		Double_val(xc), Double_val(yc),
-		Double_val(radius),
-		Double_val(amin), Double_val(amax),
-		Double_val(thickness),
-		draw_color) ;
-  
-  CAMLreturn(Val_unit) ;
-}
-
 void ocaml_nk_stroke_curve(value canvasv,
 			   value thickness,
-			   value ax, value ay,
-			   value c1x, value c1y,
-			   value c2x, value c2y,
-			   value bx, value by) {
+			   value color,
+			   value pta,
+			   value ptc1,
+			   value ptc2,
+			   value ptb) {
   
-  CAMLparam5(canvasv, thickness, ax, ay, c1x) ;
-  CAMLxparam5(c1y, c2x, c2y, by, by) ;
+  CAMLparam5(canvasv, thickness, color, pta, ptc1) ;
+  CAMLxparam2(ptc2, ptb) ;
 
-  const struct nk_color draw_color = nk_rgb(10, 170, 170);
+  int r = Long_val(Field(color, 0)) ;
+  int g = Long_val(Field(color, 1)) ;
+  int b = Long_val(Field(color, 2)) ;
+
+  const struct nk_color draw_color = nk_rgb(r,g,b) ;
+
+  double xa = Double_field(pta, 0) ;
+  double ya = Double_field(pta, 1) ;
+
+  double xc1 = Double_field(ptc1, 0) ;
+  double yc1 = Double_field(ptc1, 1) ;
+
+  double xc2 = Double_field(ptc2, 0) ;
+  double yc2 = Double_field(ptc2, 1) ;
+
+  double xb = Double_field(ptb, 0) ;
+  double yb = Double_field(ptb, 1) ;
 
   struct nk_command_buffer *canvas = Canvas_val(canvasv) ;
   
   nk_stroke_curve(canvas,
-		  Double_val(ax), Double_val(ay),
-		  Double_val(c1x), Double_val(c1y),
-		  Double_val(c2x), Double_val(c2y),
-		  Double_val(bx), Double_val(by),
+		  xa, ya,
+		  xc1, yc1,
+		  xc2, yc2,
+		  xb, yb,
 		  Double_val(thickness),
 		  draw_color) ;
   
