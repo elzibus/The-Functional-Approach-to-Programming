@@ -238,6 +238,9 @@ type picture_part = { linewidth : float;
 
 type picture = picture_part list ;;
 
+let make_blank_picture x y =
+  [{linewidth=0.0; color={r=0;g=0;b=0}; sketch = []}] ;;
+
 let make_picture (linew, col) sketch =
   [ { linewidth= linew ;
       color = col ;
@@ -259,7 +262,7 @@ let transform_picture tr pic =
  let plist_center pl =
   let rec sc_helper l x y n =
     match l with
-      [] -> {xc = x /. n; yc = y/. n}
+      [] -> if n > 0.0 then {xc = x /. n; yc = y/. n} else origin
     | (seg::xs) -> sc_helper xs (x +. seg.xc) (y +. seg.yc) (n +. 1.0)
   in
   sc_helper pl 0.0 0.0 0.0 ;;
@@ -308,25 +311,15 @@ let center_sketch sk pt =
   transform_sketch (translation ( pt.xc -. center.xc) (pt.yc -. center.yc)) sk ;;
 
 let center_picture pic pt =
-  let lcenters = List.map (fun {linewidth; color; sketch} -> center_sketch_pt sketch) pic in
+  let non_empty_sketch = List.filter (fun {linewidth; color; sketch} -> sketch != []) pic in
+  let lcenters = List.map (fun {linewidth; color; sketch} -> center_sketch_pt sketch)
+			  non_empty_sketch in
   let center = plist_center lcenters in
-  transform_picture (translation ( pt.xc -. center.xc) (pt.yc -. center.yc)) pic;;
-
-type tree_style =
-    { vdist: float;
-      hdist: float;
-      coef_list: float list} ;;
+  transform_picture (translation ( pt.xc -. center.xc) (pt.yc -. center.yc))
+		    pic;;
 
 type 'a btree = Empty
 	      | Bin of 'a btree * 'a * 'a btree ;;
-
-type token = Null
-	   | Open_paren
-	   | Close_paren
-	   | Comma
-	   | Symbol of string ;;
-
-type strp = {str: string; ptr: int } ;;
 
 (* adapted from code in chapter 2 - still fragile .. *)
 
@@ -388,22 +381,6 @@ btree_of_string (fun x -> x) "1(2(4(8,9),5(10,11)),3(6(12,13),7(14,15)))" ;;
 
 btree_of_string int_of_string "1(2((),3((),5)),4(2(6,()),()))" ;;
 
-let draw_btree tsty t =
-  let rec drawr d cl ({xc=x; yc=y} as pt) = function
-    Empty -> []
-    | (Bin (Empty, pict, Empty)) -> center_sketch pict pt
-    | (Bin(t1, pict, t2)) -> let d = d *. (List.hd cl) in
-			     let pt1 = {xc = x -. d/. 2.0; yc = y -. tsty.vdist} in
-			     let pt2 = {xc = x +. d/. 2.0; yc = y -. tsty.vdist} in
-			     let line1 = make_sketch [Seg [pt; pt1]] in
-			     let line2 = make_sketch [Seg [pt; pt2]] in
-			     match (t1,t2) with
-				   (_, Empty) -> group_sketches [line1; center_sketch pict pt; drawr d (List.tl cl) pt1 t1]
-				 | (Empty, _) -> group_sketches [line2; center_sketch pict pt; drawr d (List.tl cl) pt2 t2]
-				 | _ -> group_sketches [line1; line2; center_sketch pict pt; drawr d (List.tl cl) pt1 t1;
-							drawr d (List.tl cl) pt2 t2]
-  in
-  drawr tsty.hdist tsty.coef_list origin t ;;
 
 (* I need a vector font so that transformations work on text as well
  * from http://paulbourke.net/dataformats/hershey/
@@ -716,8 +693,8 @@ let make_text_picture size linewidth color str =
   done ;
   make_picture (linewidth, color)
 	       (group_sketches !sketchl) ;;
-  
-  (* the following functions are from chapter 6 *)
+
+(* the following two functions are from chapter 6 *)
        
 let rec btree_hom f v t =
   match t with
@@ -727,6 +704,77 @@ let rec btree_hom f v t =
 let map_btree f t =
   btree_hom (fun (t1,a,t2) -> Bin(t1, f a, t2))
 	    Empty t ;;
+
+(* simplified compared to the book *)
+type tree_style =
+    { vdist: float;
+      hdist: float;
+      coef_list: float list;
+      tlinewidth: float;
+      tcolor: color} ;;
+
+let draw_btree tsty t =
+  let rec drawr d cl ({xc=x; yc=y} as pt) = function
+    Empty -> make_blank_picture 0.0 0.0
+    | Bin (Empty, pict, Empty) -> center_picture pict pt
+    | Bin(t1, pict, t2) -> let d = d *. (List.hd cl) in
+			   let pt1 = {xc = x -. d/. 2.0; yc = y -. tsty.vdist} in
+			   let pt2 = {xc = x +. d/. 2.0; yc = y -. tsty.vdist} in
+			   let line1 = make_picture (tsty.tlinewidth, tsty.tcolor) (make_sketch [Seg [pt; pt1]]) in
+			   let line2 = make_picture (tsty.tlinewidth, tsty.tcolor) (make_sketch [Seg [pt; pt2]]) in
+			   match (t1,t2) with
+			     (_, Empty) -> group_pictures [line1; center_picture pict pt; drawr d (List.tl cl) pt1 t1]
+			   | (Empty, _) -> group_pictures [line2; center_picture pict pt; drawr d (List.tl cl) pt2 t2]
+			   | _ -> group_pictures [line1; line2; center_picture pict pt; drawr d (List.tl cl) pt1 t1;
+						  drawr d (List.tl cl) pt2 t2]
+  in
+  drawr tsty.hdist tsty.coef_list origin t ;;
+
+let black = {r=0;g=0;b=0} ;;
+let white = {r=255;g=255;b=255} ;;
+let red = {r=255;g=0;b=0} ;;
+let blue = {r=0;g=0;b=255} ;;
+
+let p1 =
+  let t1 = btree_of_string int_of_string "1(2,3(4(6,7),5))" in
+  let linewidth = 1.0 in
+  let cl1 = [1.0; 1.0; 1.0] in
+  let tstyle1 = {vdist = 50.0; hdist= 50.0; coef_list = cl1; tlinewidth = linewidth; tcolor=white } in
+  draw_btree tstyle1
+	     (map_btree (fun x -> make_blank_picture 0.0 0.0) t1) ;;
+
+let p2 =
+  let t2 = btree_of_string int_of_string "1(2(4(8,9),5(10,11)),3(6(12,13),7(14,15)))" in
+  let linewidth = 1.0 in
+  let cl2 = [1.0; 0.5; 0.5] in
+  let tstyle2 = {vdist = 50.0; hdist= 100.0; coef_list = cl2; tlinewidth = linewidth; tcolor=red } in
+  draw_btree tstyle2
+	     (map_btree (fun x -> make_blank_picture 0.0 0.0) t2) ;;
+
+let draw_string_node r a =
+  let s = center_picture (make_text_picture 0.5 1.0 red a)
+			 origin in
+  let c = make_picture (1.0, blue)
+		       (make_sketch [ Arc (origin, r, 0.0, 360.0)]) in
+  group_pictures [c; s] ;;
+
+let draw_int_node r n = draw_string_node r (string_of_int n) ;;
+
+let p1 =
+  let t1 = btree_of_string int_of_string "1(2,3(4(6,7),5))" in
+  let linewidth = 1.0 in
+  let cl1 = [1.0; 1.0; 1.0] in
+  let tstyle1 = {vdist = 50.0; hdist= 50.0; coef_list = cl1; tlinewidth = linewidth; tcolor=white } in
+  draw_btree tstyle1
+	     (map_btree (fun x -> draw_int_node 10.0 x) t1) ;;
+
+let p2 =
+  let t2 = btree_of_string int_of_string "1(2(4(8,9),5(10,11)),3(6(12,13),7(14,15)))" in
+  let linewidth = 1.0 in
+  let cl2 = [1.0; 0.5; 0.5] in
+  let tstyle2 = {vdist = 50.0; hdist= 100.0; coef_list = cl2; tlinewidth = linewidth; tcolor=red } in
+  draw_btree tstyle2
+	     (map_btree (fun x -> draw_int_node 10.0 x) t2) ;;
 
 let puts str =
   print_string str ;
@@ -769,7 +817,6 @@ let draw_grid canvas transf xmin xmax ymin ymax =
   let x2 = transform_point transf {xc=xmax; yc=0.0} in 
   line canvas 3.0 gray2 y1 y2 ;
   line canvas 3.0 gray2 x1 x2 ;;
-
 
 let draw_sketch ctx lw color sk =
   let pen = ref Up in
@@ -852,31 +899,55 @@ let geometric_elements =
       draw_picture ctx pic (-. 5.0, 5.0) (-. 5.0, 5.0) (0.0,0.0);
       gui_end ctx ;;
 
-(* ! BUG in the book, the end parens in figure 9.3 are wrong *)
+(* ! BUG in the book, the end parens in figure 9.3 are wrong at the end of each make_sketch *)
 
 let constructing_images =
   fun ctx ->
   if gui_begin ctx "9.1.3 Constructing Images" 650.0 350.0 550.0 650.0 window_flags > 0 then
-  let pic = group_pictures [ (make_picture (0.5, {r=130; g=30;b=90})
+  let pic = group_pictures [ (make_picture (1.0, {r=0; g=250;b=250})
 					   (make_sketch [Arc ({xc=5.0; yc=7.0}, 2.0, -90.0, 90.0);
 							 Seg[{xc=5.0; yc=9.0}; {xc=3.0; yc=9.0};
 							     {xc=3.0; yc=1.0}; {xc=4.0;yc=1.0};
-							       {xc=4.0;yc=5.0}; {xc=5.0;yc=5.0}]]));
-			     (make_picture (0.5, {r=130; g=30;b=90})
+							     {xc=4.0;yc=5.0}; {xc=5.0;yc=5.0}]]));
+			     (make_picture (1.0, {r=0; g=250;b=250})
 					   (make_sketch [Arc({xc=5.0; yc=7.0}, 1.0, -90.0, 90.0) ;
 							 Seg [{xc=5.0;yc=8.0}; {xc=4.0;yc=8.0};
 							      {xc=4.0;yc=6.0}; {xc=5.0;yc=6.0}]])) ;
 			     (center_picture (make_text_picture 0.02 1.0 {r=134;g=156;b=178} "another test")
-					     {xc = 4.0 ; yc = 5.0} ) ]
+					     {xc = 4.0 ; yc = 5.0} )]
   in
-  draw_picture ctx pic (-. 1.0, 10.0) (-. 1.0, 10.0) (5.0,5.0) ;
+  draw_picture ctx pic ( 0.0, 10.0) ( 0.0, 10.0) (4.0,5.0) ;
+  gui_end ctx ;;
+
+let drawing_trees =
+  fun ctx ->
+  if gui_begin ctx "9.2.1 Drawing principles" 750.0 450.0 550.0 650.0 window_flags > 0 then
+  let pic = group_pictures [ (center_picture (transform_picture (scaling ( 0.04, 0.04))
+								(let t1 = btree_of_string int_of_string "1(2,3(4(6,7),5))" in
+								 let linewidth = 1.0 in
+								 let cl1 = [1.0; 1.0; 1.0] in
+								 let tstyle1 = {vdist = 50.0; hdist= 50.0; coef_list = cl1; tlinewidth = linewidth; tcolor=white } in
+								 draw_btree tstyle1
+									    (map_btree (fun x -> draw_int_node 10.0 x) t1)))
+					     {xc= 6.0; yc=5.0}) ;
+			     (center_picture (transform_picture (scaling ( 0.04, 0.04))
+								(let t2 = btree_of_string int_of_string "1(2(4(8,9),5(10,11)),3(6(12,13),7(14,15)))" in
+								 let linewidth = 2.0 in
+								 let cl2 = [1.0; 0.5; 0.5] in
+								 let tstyle2 = {vdist = 50.0; hdist= 100.0; coef_list = cl2; tlinewidth = linewidth; tcolor=red } in
+								 draw_btree tstyle2
+									    (map_btree (fun x -> draw_int_node 10.0 x) t2)))
+								{xc= 3.0; yc=2.0})]
+  in
+  draw_picture ctx pic (-. 1.0, 10.0) (-. 1.0, 10.0) (4.0, 5.0) ;
   gui_end ctx ;;
 
 let ocaml_gui =
   fun ctx ->
   contents ctx;
   geometric_elements ctx ;
-  constructing_images ctx ;;
+  constructing_images ctx ;
+  drawing_trees ctx ;;
 
 let () =
   Callback.register "ocaml_gui" ocaml_gui ;;
