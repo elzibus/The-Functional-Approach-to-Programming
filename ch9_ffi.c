@@ -167,6 +167,26 @@ value ocaml_nk_begin(value ctxv, value title, value x, value y, value w, value h
 			      Int_val(flags)))) ;
 }
 
+value ocaml_nk_tree_push(value ctxv, value label, value id) {
+
+  CAMLparam3(ctxv, label, id) ;
+
+  struct nk_context *ctx = Context_val(ctxv) ;
+
+  CAMLreturn(Val_int(nk_tree_push_id(ctx, NK_TREE_TAB, String_val(label), NK_MINIMIZED, Int_val(id)))) ;
+}
+
+value ocaml_nk_tree_pop(value ctxv) {
+
+  CAMLparam1(ctxv) ;
+
+  struct nk_context *ctx = Context_val(ctxv) ;
+  
+  nk_tree_pop(ctx) ;
+
+  CAMLreturn(Val_unit) ;
+}
+
 void ocaml_gui(value ctxv) {
   
   static value *closure_f = NULL ;
@@ -247,3 +267,40 @@ void ocaml_nk_stroke_curve(value canvasv,
   CAMLreturn(Val_unit) ;
 }
 
+/*
+   Arrays of floating-point numbers (type float array) have a special, unboxed, more efficient representation.
+   These arrays are represented by pointers to blocks with tag Double_array_tag. They should be accessed with
+   the Double_field and Store_double_field macros.
+*/
+
+void ocaml_nk_fill_polygon(value canvasv,
+			   value points,
+			   value count,
+			   value color) {
+
+  CAMLparam4(canvasv, points, count, color) ;
+
+  int r = Long_val(Field(color, 0)) ;
+  int g = Long_val(Field(color, 1)) ;
+  int b = Long_val(Field(color, 2)) ;
+
+  const struct nk_color draw_color = nk_rgb(r,g,b) ;
+
+  struct nk_command_buffer *canvas = Canvas_val(canvasv) ;
+
+  int i, n = Int_val(count) ;
+
+  float *pts = (float *) malloc( 2 * n * sizeof(float)) ;
+
+  for(i=0; i<n; i++) {
+    pts[i*2+0] = Double_field(points, i*2+0);
+    pts[i*2+1] = Double_field(points, i*2+1);
+  }
+
+  nk_fill_polygon(canvas, pts, n,  draw_color);
+
+  free(pts) ;
+
+  CAMLreturn(Val_unit) ;
+}
+  

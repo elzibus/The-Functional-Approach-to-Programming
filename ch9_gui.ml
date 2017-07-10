@@ -24,16 +24,24 @@ external label: context -> string -> int -> unit = "ocaml_nk_label"
 external slider_pct: context -> string -> int ref -> int -> float -> unit = "ocaml_nk_property_int"
 external gui_begin: context -> string -> float -> float -> float -> float -> int -> int = "dummy" "ocaml_nk_begin"
 external gui_end: context -> unit = "ocaml_nk_end"
+
+external tree_push: context -> string -> int -> int = "ocaml_nk_tree_push"
+external tree_pop: context -> unit = "ocaml_nk_tree_pop"
+					       
 external get_canvas: context -> canvas = "ocaml_nk_window_get_canvas"
 external get_region: context -> rect = "ocaml_nk_get_region"
 external line: canvas -> float -> color -> point -> point -> unit = "ocaml_nk_stroke_line"
 external curve: canvas -> float -> color -> point -> point -> point -> point -> unit = "dummy" "ocaml_nk_stroke_curve"
 
+external fill_polygon: canvas -> float array -> int -> color -> unit = "ocaml_nk_fill_polygon"
+
 (* 9.1.2 Geometric elements *)
 
 type geom_element =
     Seg of point list
+  | Segf of point list  (* introduced to enable clear drawing of tree nodes - not present in the book *)
   | Arc of point * float * float * float
+  | Arcf of point * float * float * float
   | Curve of point * point * point * point ;;
 
 type transformation = { m11: float; m12: float; m13: float;
@@ -195,18 +203,20 @@ let range_values_n min max n =
 (* can be changed in the UI *)
 let arc_to_segs_n = ref 20 ;;
 
-let arc_to_segs pt r a1 a2 =
+let arc_to_segs filled pt r a1 a2 =
   let pts = List.map (fun a -> {xc=pt.xc +. r *. cos_deg(a);
 				yc=pt.yc +. r *. sin_deg(a)})
 		     (range_values_n a1 a2 !arc_to_segs_n) in
-  Seg pts;;
+  if filled then Segf pts else Seg pts;;
 
 let make_sketch gl =
   let rec ms_helper gl =
     match gl with
       [] -> []
+    | (Segf pl)::rest -> (Segf pl)::ms_helper rest
     | (Seg pl)::rest -> (Seg pl)::ms_helper rest
-    | Arc (pt,r,a1,a2)::rest -> (arc_to_segs pt r a1 a2) :: ms_helper rest
+    | Arc (pt,r,a1,a2)::rest -> (arc_to_segs false pt r a1 a2) :: ms_helper rest
+    | Arcf (pt,r,a1,a2)::rest -> (arc_to_segs true pt r a1 a2) :: ms_helper rest
     | Curve (p1,p2,p3,p4) as curve :: rest -> curve :: ms_helper rest
   in
   Lift_pen :: [ Ge ( ms_helper gl) ] ;;
@@ -219,14 +229,16 @@ let rec transform_sketch tr sk =
     [] -> []
   | Lift_pen::rest -> Lift_pen :: transform_sketch tr rest
   | Ge g::rest -> (Ge (List.map ( fun elt -> match elt with
-					   Seg pl -> Seg (List.map (fun pt -> transform_point tr pt) pl)
-					 | Arc (pt,r,a1,a2) -> failwith "I don't expect an Arc here.."
-					 | Curve (p1,p2,p3,p4) -> let p1' = transform_point tr p1 in
-								  let p2' = transform_point tr p2 in
-								  let p3' = transform_point tr p3 in
-								  let p4' = transform_point tr p4 in
-								  Curve (p1', p2', p3', p4'))
-			    g)) :: transform_sketch tr rest;;
+					       Seg pl -> Seg (List.map (fun pt -> transform_point tr pt) pl)
+					     | Segf pl -> Segf (List.map (fun pt -> transform_point tr pt) pl)
+					     | Arc (pt,r,a1,a2) -> failwith "I don't expect an Arc here.."
+					     | Arcf (pt,r,a1,a2) -> failwith "I don't expect an Arcf here.."
+					     | Curve (p1,p2,p3,p4) -> let p1' = transform_point tr p1 in
+								      let p2' = transform_point tr p2 in
+								      let p3' = transform_point tr p3 in
+								      let p4' = transform_point tr p4 in
+								      Curve (p1', p2', p3', p4'))
+				g)) :: transform_sketch tr rest;;
 
 (* 9.2 Drawing Trees *)
 
@@ -254,7 +266,7 @@ let transform_picture tr pic =
 	   pic ;;
 
 (*
- * the center of a Seg is the barycenter of all points that compose the Seg
+ * the center of a Seg is the barycenter of all points that compose the Seg.
  * the center of an Arc is its center
  * the center of a Curve is the barycenter of its constituting points
  *)
@@ -292,14 +304,27 @@ let sk1 =
   group_sketches [ (make_sketch [ Seg [ ptA; ptB; ptC; ptD; ptA] ]); 
 		   (make_sketch [ Curve ( ptE, ptF, ptG, ptH) ]); 
 		   (make_sketch [ Arc ( ptI, 2.0, 30.0, 290.0 ) ] ) ] ;;
+				    
+let center_bounding_box lpoints =
+  if List.length lpoints = 0 then origin
+  else let pt = List.hd lpoints in
+       let x = pt.xc in
+       let y = pt.yc in
+       let xmin = List.fold_left min x (List.map (fun elt -> elt.xc) lpoints) in
+       let xmax = List.fold_left max x (List.map (fun elt -> elt.xc) lpoints) in
+       let ymin = List.fold_left min y (List.map (fun elt -> elt.yc) lpoints) in
+       let ymax = List.fold_left max y (List.map (fun elt -> elt.yc) lpoints) in
+       {xc = (xmin +. xmax) /. 2.0 ; yc = (ymin +. ymax) /. 2.0 }  ;;
 
 (* computer the point at the center of a sketch - re-used by center_sketch and center_picture *)
 let center_sketch_pt sk =
   let temp = List.map (fun skp -> match skp with
 				    Lift_pen -> []
 				  | Ge ge -> List.map (fun elt -> match elt with
-								    Seg sl -> plist_center sl
+								    Seg sl -> center_bounding_box sl
+								  | Segf sl -> center_bounding_box sl
 								  | Arc (p,_,_,_) -> p
+								  | Arcf (p,_,_,_) -> p
 								  | Curve (p1,p2,p3,p4) -> fpoint_center (p1,p2,p3,p4))
 						      ge)
 		      sk
@@ -754,9 +779,11 @@ let p2 =
 let draw_string_node r a =
   let s = center_picture (make_text_picture 0.5 1.0 red a)
 			 origin in
-  let c = make_picture (1.0, blue)
-		       (make_sketch [ Arc (origin, r, 0.0, 360.0)]) in
-  group_pictures [c; s] ;;
+  let c2 = make_picture (1.0, blue)
+			(make_sketch [ Arc (origin, r, 0.0, 360.0)]) in
+  let c1 = make_picture (1.0, white)
+			(make_sketch [ Arcf (origin, r, 0.0, 360.0)]) in
+  group_pictures [c1; c2; s] ;;
 
 let draw_int_node r n = draw_string_node r (string_of_int n) ;;
 
@@ -825,7 +852,13 @@ let draw_sketch ctx lw color sk =
   List.iter (fun s -> match s with
 			Lift_pen -> pen := Up
 		      | Ge g -> List.iter (fun g -> match g with
-						      Seg pts -> List.iter (fun pt -> if !pen = Up
+						      Segf pts -> let n = List.length pts in
+								  let fa = Array.create_float (2*n) in
+								  List.iteri (fun idx pt -> (fa.(idx*2) <- pt.xc;
+											     fa.(idx*2+1) <- pt.yc))
+									     pts ;
+								  fill_polygon canvas fa n color
+						    | Seg pts -> List.iter (fun pt -> if !pen = Up
 										      then begin
 										      pen := Down;
 										      xcur := pt.xc;
@@ -839,6 +872,7 @@ let draw_sketch ctx lw color sk =
 									   )
 									   pts
 						    | Arc (pt, r, amin, amax) -> failwith "I don't expect an Arc here.:"
+						    | Arcf (pt, r, amin, amax) -> failwith "I don't expect an Arcf here.:"
 						    | Curve (a,c1,c2,b) -> curve canvas lw color a c1 c2 b)
 					  g)
 	    sk ;;
@@ -858,25 +892,40 @@ let draw_picture ctx pic (xmin,xmax) (ymin,ymax) (xcenter, ycenter) =
 
 let contents =
   fun ctx ->
-    if gui_begin ctx "Main" 50.0 50.0 250.0 250.0 window_flags > 0 then
-      begin
-	layout_row_static ctx 20.0 200 1;
-	label ctx "Chapter 9" 17;
-	layout_row_static ctx 20.0 200 1;
-	if button_label ctx "Back to defaults" > 0 then
-	begin
-	scale_factor_x := 50 ;
-	scale_factor_y := 50 ;
-	arc_to_segs_n := 20 ;
-	end;
-	layout_row_static ctx 20.0 200 1;
-	slider_pct ctx "Scale factor x:" scale_factor_x 1 1.0 ;
-	layout_row_static ctx 20.0 200 1;
-	slider_pct ctx "Scale factor y:" scale_factor_y 1 1.0 ;
-	layout_row_static ctx 20.0 200 1;
-	slider_pct ctx "Arc to segs:" arc_to_segs_n 1 1.0 ;
-      end ;
-    gui_end ctx ;;
+  if gui_begin ctx "Main" 50.0 50.0 280.0 450.0 window_flags > 0 then
+  begin
+  for ch = 1 to 8 do
+  if tree_push ctx ("Chapter " ^ string_of_int ch) ch > 0 then begin
+							  layout_row_static ctx 20.0 200 1;
+							  label ctx "Empty" 17;
+							  tree_pop ctx ;
+							  end ;
+  done ;
+  if tree_push ctx "Chapter 9" 9 > 0 then begin
+				   layout_row_static ctx 20.0 200 1;
+				   if button_label ctx "Back to defaults" > 0 then
+				   begin
+				   scale_factor_x := 50 ;
+				   scale_factor_y := 50 ;
+				   arc_to_segs_n := 20 ;
+				   end;
+				   layout_row_static ctx 20.0 200 1;
+				   slider_pct ctx "Scale factor x:" scale_factor_x 1 1.0 ;
+				   layout_row_static ctx 20.0 200 1;
+				   slider_pct ctx "Scale factor y:" scale_factor_y 1 1.0 ;
+				   layout_row_static ctx 20.0 200 1;
+				   slider_pct ctx "Arc to segs:" arc_to_segs_n 1 1.0 ;
+				   tree_pop ctx ;
+				   end ;
+  for ch = 10 to 13 do
+  if tree_push ctx ("Chapter " ^ string_of_int ch) ch > 0 then begin
+							  layout_row_static ctx 20.0 200 1;
+							  label ctx "Empty" 17;
+							  tree_pop ctx ;
+							  end ;
+  done ;
+  end ;
+  gui_end ctx ;;
 
 let geometric_elements =
   fun ctx ->
