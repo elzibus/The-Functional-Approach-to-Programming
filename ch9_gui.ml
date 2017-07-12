@@ -265,13 +265,48 @@ let transform_picture tr pic =
   List.map (fun {linewidth; color; sketch} -> {linewidth=linewidth; color=color; sketch = transform_sketch tr sketch})
 	   pic ;;
 
-(*
- * the center of a Seg is the barycenter of all points that compose the Seg.
- * the center of an Arc is its center
- * the center of a Curve is the barycenter of its constituting points
+(* center = center bounding box (bb)
+   bb(Seg, Segf) = use points
+   bb(Arc) = use center + radius
+   bb(Curve) = use the points that make it
+
+   derive picture_[height, width] from the bb
  *)
 
- let plist_center pl =
+(* converts a sketch into a list of points that make it
+   follows the bounding box definition above            *)
+
+let sketch_to_plist sk =
+  let temp = List.map (fun skp -> match skp with
+				    Lift_pen -> []
+				  | Ge ge -> List.map (fun elt -> match elt with
+								    Seg sl -> sl
+								  | Segf sl -> sl
+								  | Arc (p,r,_,_) -> [{ xc = p.xc -. r; yc = p.yc -. r}; {xc = p.xc +. r; yc = p.yc +. r}]
+								  | Arcf (p,r,_,_) -> [{xc = p.xc -. r; yc = p.yc -. r}; {xc = p.xc +. r; yc = p.yc +. r}]
+								  | Curve (p1,p2,p3,p4) -> [p1;p2;p3;p4])
+						      ge)
+		      sk
+  in
+  List.flatten(List.flatten temp) ;;
+
+let get_bb_plist ptlist =
+  if ptlist = [] then failwith "the input to get_bb_points is empty"
+  else let first_point = List.hd ptlist in
+       let x = first_point.xc in
+       let y = first_point.yc in
+       let rec gbp_helper l (xmin,ymin,xmax,ymax) =
+	 match l with
+	   [] -> (xmin,ymin,xmax,ymax)
+	 | pt::pts -> gbp_helper pts (min xmin pt.xc,
+				      min ymin pt.yc,
+				      max xmax pt.xc,
+				      max ymax pt.yc)
+       in
+       gbp_helper ptlist (x,y,x,y) ;;
+
+(* center of a list of points *)
+ let center_plist pl =
   let rec sc_helper l x y n =
     match l with
       [] -> if n > 0.0 then {xc = x /. n; yc = y/. n} else origin
@@ -279,18 +314,8 @@ let transform_picture tr pic =
   in
   sc_helper pl 0.0 0.0 0.0 ;;
 
-plist_center [origin; {xc=1.0;yc=1.0}] ;;
+center_plist [origin; {xc=1.0;yc=1.0}] ;;
 
-(* center of a four point tuple *)
-
-let fpoint_center (pt1, pt2, pt3, pt4) =
-  {xc=(pt1.xc +. pt2.xc +. pt3.xc +. pt4.xc) /. 4.0;
-   yc=(pt1.yc +. pt2.yc +. pt3.yc +. pt4.yc) /. 4.0} ;;
-
-fpoint_center ({xc= -. 1.0; yc= -. 1.0},
-	       {xc= -. 1.0; yc=    1.0},
-	       {xc=    1.0; yc=    1.0},
-	       {xc=    1.0; yc= -. 1.0}) ;;
 let sk1 = 
   let ptA = {xc= -. 3.0 ; yc= -. 3.0 } in
   let ptB = {xc= -. 3.0 ; yc= -. 1.0 } in
@@ -304,44 +329,45 @@ let sk1 =
   group_sketches [ (make_sketch [ Seg [ ptA; ptB; ptC; ptD; ptA] ]); 
 		   (make_sketch [ Curve ( ptE, ptF, ptG, ptH) ]); 
 		   (make_sketch [ Arc ( ptI, 2.0, 30.0, 290.0 ) ] ) ] ;;
-				    
-let center_bounding_box lpoints =
-  if List.length lpoints = 0 then origin
-  else let pt = List.hd lpoints in
-       let x = pt.xc in
-       let y = pt.yc in
-       let xmin = List.fold_left min x (List.map (fun elt -> elt.xc) lpoints) in
-       let xmax = List.fold_left max x (List.map (fun elt -> elt.xc) lpoints) in
-       let ymin = List.fold_left min y (List.map (fun elt -> elt.yc) lpoints) in
-       let ymax = List.fold_left max y (List.map (fun elt -> elt.yc) lpoints) in
-       {xc = (xmin +. xmax) /. 2.0 ; yc = (ymin +. ymax) /. 2.0 }  ;;
 
 (* computer the point at the center of a sketch - re-used by center_sketch and center_picture *)
 let center_sketch_pt sk =
-  let temp = List.map (fun skp -> match skp with
-				    Lift_pen -> []
-				  | Ge ge -> List.map (fun elt -> match elt with
-								    Seg sl -> center_bounding_box sl
-								  | Segf sl -> center_bounding_box sl
-								  | Arc (p,_,_,_) -> p
-								  | Arcf (p,_,_,_) -> p
-								  | Curve (p1,p2,p3,p4) -> fpoint_center (p1,p2,p3,p4))
-						      ge)
-		      sk
-  in
-  plist_center ( List.flatten temp) ;;
+  let (xmin,ymin,xmax,ymax) = get_bb_plist ( sketch_to_plist sk) in
+  {xc=(xmin +. xmax) /. 2.0;
+   yc=(ymin +. ymax) /. 2.0} ;;
+  
 
 let center_sketch sk pt =
-  let center = center_sketch_pt sk in
+  let center =  center_sketch_pt sk in
   transform_sketch (translation ( pt.xc -. center.xc) (pt.yc -. center.yc)) sk ;;
 
-let center_picture pic pt =
+let picture_to_sklist pic =
   let non_empty_sketch = List.filter (fun {linewidth; color; sketch} -> sketch != []) pic in
-  let lcenters = List.map (fun {linewidth; color; sketch} -> center_sketch_pt sketch)
-			  non_empty_sketch in
-  let center = plist_center lcenters in
+  List.map (fun {linewidth; color; sketch} -> sketch)
+	   non_empty_sketch ;;
+		    
+let center_picture pic pt =
+  let sketches = picture_to_sklist pic in
+  let lcenters = List.map (fun sk -> center_sketch_pt sk)
+			  sketches in
+  let center = center_plist lcenters in
   transform_picture (translation ( pt.xc -. center.xc) (pt.yc -. center.yc))
 		    pic;;
+
+let get_picture_bb pic =
+  let sketches = picture_to_sklist pic in
+  let plist = List.flatten ( List.map sketch_to_plist sketches) in
+  get_bb_plist plist ;;
+
+let picture_height pic =
+  let bb = get_picture_bb pic in
+  match bb with
+    (_,ymin,_,ymax) -> ymax -. ymin ;;
+
+let picture_width pic =
+  let bb = get_picture_bb pic in
+  match bb with
+    (xmin,_,xmax,_) -> xmax -. xmin ;;
 
 type 'a btree = Empty
 	      | Bin of 'a btree * 'a * 'a btree ;;
@@ -802,6 +828,54 @@ let p2 =
   let tstyle2 = {vdist = 50.0; hdist= 100.0; coef_list = cl2; tlinewidth = linewidth; tcolor=red } in
   draw_btree tstyle2
 	     (map_btree (fun x -> draw_int_node 10.0 x) t2) ;;
+
+(* 9.2.2 Computing the Reduction Coefficients *)
+
+let rec it_btree f x t =
+  match t with
+    Empty -> x
+  | Bin ( t1, a, t2) -> it_btree f (f (it_btree f x t1) a) t2 ;;
+
+let compute_height_width (hcoef, wcoef) t =
+  let (h,w) = it_btree
+	      (fun (x,y) p -> (max x (picture_height p),
+			       max y (picture_width p)))
+	      (0.0, 0.0)
+	      t
+  in
+  (h *. hcoef, w *. wcoef) ;;
+
+let rec minl = function
+  ([],l2) -> l2
+  |(l1, []) -> l1
+  |(a1::l1, a2::l2) -> min a1 a2 :: minl(l1,l2) ;;
+
+let recompute_triples cl =
+  let rec recomp (n, cl) = function
+    [] -> []
+    | ((l,r,c)::ll) -> (l *. n /. c, r *. n /. c):: recomp(n *. (List.hd cl), List.tl cl) ll
+  in
+  recomp (List.hd cl, List.tl cl) ;;
+
+let compute_head_coef (trl1, trl2) =
+  let rec comp_coef = function
+    ([], _) -> []
+    | (_, []) -> []
+    | ((_, r1,c)::ll1, (l2,_,_) ::ll2) -> let d = (r1 -. l2 +. c) in
+					  (if d <= 0.0 then 1.0 else (1.0 /. d)) :: comp_coef (ll1,ll2)
+  in
+  it_list min 1.0 (comp_coef (trl1, trl2)) ;;
+
+let combine_triples x (trl1, trl2) =
+  let rec comb = function
+    ([],[]) -> []
+    | ((l1,r1,c)::ll1, []) -> ( -. 0.5 +. x *. l1, -. 0.5 +. x *. r1, c *. x) :: comb (ll1, [])
+    | ([], (l2,r2,c) :: ll2) -> (0.5 +. x *. l2, 0.5 +. x *. r2, c*. x) :: comb([], ll2)
+    | ((l1,r1,c)::ll1, (l2,r2,_) :: ll2) -> (-. 0.5 +. x *. l1, 0.5 *. x *. r2, c *. x) :: comb(ll1,ll2)
+  in
+  ( -. 0.5, 0.5, 1.0) :: comb(trl1, trl2) ;;
+
+(* ---------------------------------------------------------------------------------------------------------- *)
 
 let puts str =
   print_string str ;
