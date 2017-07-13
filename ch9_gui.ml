@@ -784,6 +784,7 @@ let draw_btree tsty t =
 let black = {r=0;g=0;b=0} ;;
 let white = {r=255;g=255;b=255} ;;
 let red = {r=255;g=0;b=0} ;;
+let green = {r=0;g=255;b=0} ;;
 let blue = {r=0;g=0;b=255} ;;
 
 let p1 =
@@ -853,7 +854,7 @@ let rec minl = function
 let recompute_triples cl =
   let rec recomp (n, cl) = function
     [] -> []
-    | ((l,r,c)::ll) -> (l *. n /. c, r *. n /. c):: recomp(n *. (List.hd cl), List.tl cl) ll
+    | ((l,r,c)::ll) -> (l *. n /. c, r *. n /. c, n):: recomp(n *. (List.hd cl), List.tl cl) ll
   in
   recomp (List.hd cl, List.tl cl) ;;
 
@@ -874,6 +875,44 @@ let combine_triples x (trl1, trl2) =
     | ((l1,r1,c)::ll1, (l2,r2,_) :: ll2) -> (-. 0.5 +. x *. l1, 0.5 *. x *. r2, c *. x) :: comb(ll1,ll2)
   in
   ( -. 0.5, 0.5, 1.0) :: comb(trl1, trl2) ;;
+
+let compute_coef_list t =
+  let rec comp = function
+    Empty -> ([],[])
+    | (Bin(Empty, _, Empty)) -> ([1.0],[])
+    | (Bin(t1, _, Empty)) -> let (cl,trl) = comp t1 in
+			     (1.0 ::cl, ( -. 0.5, -. 0.5, 1.0) :: List.map (fun (l,r,c) -> (-. 0.5 +. l, -. 0.5 +. r, c))
+								      trl)
+    | Bin(Empty, _, t2) -> let (cl, trl) = comp t2 in (1.0 :: cl, (0.5, 0.5,1.0) :: List.map (fun (l,r,c) -> (0.5 +. l, 0.5 +. r, c))
+										       trl)
+    | Bin(t1, _, t2) -> let (cl1, trl1) = comp t1 in
+			let (cl2,trl2) = comp t2 in
+			let cl = minl(cl1, cl2) in
+			let trl1' = recompute_triples cl trl1 in
+			let trl2' = recompute_triples cl trl2 in
+			let x = compute_head_coef (trl1', trl2') in
+			(1.0::x::(List.tl cl), combine_triples x (trl1', trl2'))
+  in
+  fst(comp t) ;;
+
+let make_btree_picture drn (vcoef,hcoef) color t =
+  let tp = map_btree drn t in
+  let coef_list = compute_coef_list t in
+  let (height, width) = compute_height_width (vcoef,hcoef) tp in
+  let start_width = width /. (it_list ( *. ) 1.0 coef_list) in
+  let tlsty = {vdist = height;
+	       hdist = start_width;
+	       coef_list = coef_list;
+	       tlinewidth = height /. 50.0;
+	       tcolor = color}
+  in
+  draw_btree tlsty tp ;;
+
+(* ! BUG: the trees p1 and p2 in page 298 do not match figure 9.6 *)
+
+let p1 =
+  let t1 = btree_of_string int_of_string "1(2((),3((),5)),4(2(6,()),()))" in
+  make_btree_picture (draw_int_node 10.0) (4.0, 4.0) green t1 ;;
 
 (* ---------------------------------------------------------------------------------------------------------- *)
 
@@ -1060,7 +1099,9 @@ let drawing_trees =
 								 let tstyle2 = {vdist = 50.0; hdist= 100.0; coef_list = cl2; tlinewidth = linewidth; tcolor=red } in
 								 draw_btree tstyle2
 									    (map_btree (fun x -> draw_int_node 10.0 x) t2)))
-								{xc= 3.0; yc=2.0})]
+					     {xc= 3.0; yc=2.0});
+			     (center_picture (transform_picture (scaling (0.04, 0.04))
+								p1) {xc=2.0;yc=1.0})]
   in
   draw_picture ctx pic (-. 1.0, 10.0) (-. 1.0, 10.0) (4.0, 5.0) ;
   gui_end ctx ;;
@@ -1074,4 +1115,3 @@ let ocaml_gui =
 
 let () =
   Callback.register "ocaml_gui" ocaml_gui ;;
-
