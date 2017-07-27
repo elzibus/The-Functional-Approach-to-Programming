@@ -1001,7 +1001,14 @@ let draw_picture ctx pic (xmin,xmax) (ymin,ymax) (xcenter, ycenter) =
   in
   draw_grid canvas transf xmin xmax ymin ymax ;
   let pic' = transform_picture transf pic in
-  List.iter (fun sub_pic -> draw_sketch ctx sub_pic.linewidth sub_pic.color sub_pic.sketch) pic' ;;
+  List.iter (fun sub_pic -> draw_sketch ctx sub_pic.linewidth sub_pic.color sub_pic.sketch)
+	    pic' ;
+  let (x1,y1,x2,y2) = get_picture_bb pic' in
+  draw_sketch ctx 0.5 red ([Ge [Seg [{xc=x1; yc=y1};
+				     {xc=x1; yc=y2};
+				     {xc=x2; yc=y2};
+				     {xc=x2; yc=y1};
+				     {xc=x1; yc=y1}]]]) ;;
 
 let contents =
   fun ctx ->
