@@ -79,10 +79,10 @@ let compose_transformations =
 transform_point (compose_transformations [id_trans; id_trans; id_trans])
 		{xc=123.0 ; yc=456.0} ;;
 
-let translation tx ty = {m11=1.0; m12=0.0; m13=tx;
-			 m21=0.0; m22=1.0; m23=ty} ;;
+let translation (tx, ty) = {m11=1.0; m12=0.0; m13=tx;
+			    m21=0.0; m22=1.0; m23=ty} ;;
 
-transform_point (translation 1.0 2.0)
+transform_point (translation (1.0, 2.0))
 		{xc=123.0 ; yc=456.0} ;;
 
 let pi = 4.0 *. atan 1.0;;
@@ -105,9 +105,9 @@ transform_point (rotation_origin 90.0)
 
 (* composed from right to left !!! *)
 let rotation pt deg =
-  compose_transformations [ translation pt.xc pt.yc ;
+  compose_transformations [ translation (pt.xc, pt.yc) ;
 			    rotation_origin deg;
-			    translation (-. pt.xc) (-. pt.yc)] ;;
+			    translation (-. pt.xc, -. pt.yc)] ;;
 						    
 transform_point (rotation {xc = -. 2.0; yc = -. 2.0} 60.0)
 		{xc=2.5 ; yc=0.0} ;;
@@ -134,9 +134,9 @@ transform_point origin_symmetry
 		{xc=123.0 ; yc= -. 110.0} ;;
 
 let point_symmetry pt =
-  compose_transformations [ translation pt.xc pt.yc ;
+  compose_transformations [ translation (pt.xc, pt.yc) ;
 			    origin_symmetry;
-			    translation (-. pt.xc) (-. pt.yc)] ;;
+			    translation (-. pt.xc, -. pt.yc)] ;;
 
 transform_point (point_symmetry {xc= 6.0; yc= 4.0})
 		{xc=4.0 ; yc= 5.0} ;;
@@ -152,11 +152,11 @@ let p1 = {xc= 0.0; yc= 0.0} in
 
 let line_symmetry (pt1, pt2) =
   let angle_deg = rad_to_deg ( atan ((pt2.yc -. pt1.yc) /. (pt2.xc -. pt1.xc)) ) in
-  compose_transformations [ translation pt1.xc pt1.yc ;
+  compose_transformations [ translation (pt1.xc, pt1.yc) ;
 			    rotation_origin angle_deg ;
 			    xaxis_symmetry ;
 			    rotation_origin (-. angle_deg) ;
-			    translation (-. pt1.xc) (-. pt1.yc)] ;;
+			    translation (-. pt1.xc, -. pt1.yc)] ;;
     
 let p1 = {xc= -. 1.0; yc= -. 3.0} in
     let p2 = {xc= 5.0; yc= 2.0} in
@@ -339,7 +339,7 @@ let center_sketch_pt sk =
 
 let center_sketch sk pt =
   let center =  center_sketch_pt sk in
-  transform_sketch (translation ( pt.xc -. center.xc) (pt.yc -. center.yc)) sk ;;
+  transform_sketch (translation ( pt.xc -. center.xc , pt.yc -. center.yc)) sk ;;
 
 let picture_to_sklist pic =
   let non_empty_sketch = List.filter (fun {linewidth; color; sketch} -> sketch != []) pic in
@@ -351,7 +351,7 @@ let center_picture pic pt =
   let lcenters = List.map (fun sk -> center_sketch_pt sk)
 			  sketches in
   let center = center_plist lcenters in
-  transform_picture (translation ( pt.xc -. center.xc) (pt.yc -. center.yc))
+  transform_picture (translation ( pt.xc -. center.xc , pt.yc -. center.yc))
 		    pic;;
 
 let get_picture_bb pic =
@@ -738,7 +738,7 @@ let make_text_picture size linewidth color str =
   if code < 0 || code > (Array.length code_to_sketch) -1
   then failwith "Unkown character in make_text_picture"
   else ( sketchl := !sketchl @  [ transform_sketch  (compose_transformations [ scaling (size, size) ;
-									       (translation !xstart 0.0) ] )
+									       (translation (!xstart, 0.0)) ] )
   						    code_to_sketch.(code) ] ;
 	 xstart := !xstart +. code_width.(code) )
   done ;
@@ -914,6 +914,19 @@ let p1 =
   let t1 = btree_of_string int_of_string "1(2((),3((),5)),4(2(6,()),()))" in
   make_btree_picture (draw_int_node 10.0) (4.0, 4.0) green t1 ;;
 
+(* 9.3 Tiling *)
+
+(* 9.3.1 The Method used *)
+
+let make_tiling p trans =
+  group_pictures (List.map (fun t -> transform_picture t p) trans) ;;
+
+let point_translation = fun
+  {xc=x1; yc=y1} {xc=x2; yc=y2} -> translation (x2 -. x1, y2 -. y1) ;;
+
+let t1 = point_translation ptA1 ptC1
+  and t2 = point_translation ptA1 ptE1 ;;
+
 (* ---------------------------------------------------------------------------------------------------------- *)
 
 let puts str =
@@ -994,10 +1007,10 @@ let draw_picture ctx pic (xmin,xmax) (ymin,ymax) (xcenter, ycenter) =
   let canvas = get_canvas ctx in
   let reg = get_region ctx in
   let (w, h, x, y) = (reg.w, reg.h, reg.x, reg.y) in
-  let transf = compose_transformations [ translation (x +. w/.2.0) (y +. h/.2.0) ;
+  let transf = compose_transformations [ translation (x +. w/.2.0, y +. h/.2.0) ;
 					 scaling (float_of_int !scale_factor_x, float_of_int !scale_factor_y);
 					 xaxis_symmetry;
-					 translation (-. xcenter) (-. ycenter) ]	 
+					 translation (-. xcenter, -. ycenter) ]	 
   in
   draw_grid canvas transf xmin xmax ymin ymax ;
   let pic' = transform_picture transf pic in
