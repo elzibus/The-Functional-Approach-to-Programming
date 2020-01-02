@@ -924,8 +924,11 @@ let make_tiling p trans =
 let point_translation = fun
   {xc=x1; yc=y1} {xc=x2; yc=y2} -> translation (x2 -. x1, y2 -. y1) ;;
 
+(* 
+ * commenting out these two lines: they cause an error that prevents compilation
 let t1 = point_translation ptA1 ptC1
   and t2 = point_translation ptA1 ptE1 ;;
+ *)
 
 (* ---------------------------------------------------------------------------------------------------------- *)
 
