@@ -7,3 +7,7 @@ I am reading [this book](http://pauillac.inria.fr/cousineau-mauny/) by Guy Cousi
 I have discovered that one of the authors has made the original Caml-Light source code available:
 
 https://github.com/mauny/the-functional-approach-to-programming
+
+# Update 22NOV2021
+
+[@Fourchaux](https://github.com/Fourchaux) has converted the entire book to Ocaml code and opened a pull request in [@mauny](https://github.com/mauny/the-functional-approach-to-programming)'s repository :)
